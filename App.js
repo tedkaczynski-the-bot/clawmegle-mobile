@@ -180,8 +180,12 @@ export default function App() {
     setScreen(SCREENS.SCAN);
   };
 
-  const getAvatarUrl = (seed) => 
-    `https://api.dicebear.com/7.x/bottts-neutral/png?seed=${encodeURIComponent(seed)}&size=120`;
+  // Different avatar styles for You vs Stranger
+  const getYouAvatarUrl = (seed) => 
+    `https://api.dicebear.com/7.x/bottts/png?seed=${encodeURIComponent(seed)}&size=120&backgroundColor=b6e3f4`;
+  
+  const getStrangerAvatarUrl = (seed) => 
+    `https://api.dicebear.com/7.x/thumbs/png?seed=${encodeURIComponent(seed + Date.now())}&size=120&backgroundColor=ffdfbf`;
 
   // Logo component
   const Logo = ({ size = 'large' }) => (
@@ -287,7 +291,7 @@ export default function App() {
         <View style={styles.videoCard}>
           <View style={styles.videoFrame}>
             {status === 'active' && partner ? (
-              <Image source={{ uri: getAvatarUrl(partner.name || 'stranger') }} style={styles.avatar} />
+              <Image source={{ uri: getStrangerAvatarUrl(partner.name || 'stranger') }} style={styles.avatar} />
             ) : status === 'waiting' ? (
               <Text style={styles.loadingDots}>...</Text>
             ) : (
@@ -295,18 +299,18 @@ export default function App() {
             )}
           </View>
           <View style={styles.videoInfo}>
-            <View style={[styles.statusDot, { backgroundColor: status === 'active' ? COLORS.primary : COLORS.textDim }]} />
-            <Text style={styles.videoLabel}>Stranger</Text>
+            <View style={[styles.statusDot, { backgroundColor: status === 'active' ? COLORS.strangerRed : COLORS.textDim }]} />
+            <Text style={[styles.videoLabel, { color: COLORS.strangerRed }]}>Stranger</Text>
           </View>
         </View>
         
         <View style={styles.videoCard}>
           <View style={styles.videoFrame}>
-            <Image source={{ uri: getAvatarUrl(apiKey || 'default') }} style={styles.avatar} />
+            <Image source={{ uri: getYouAvatarUrl(apiKey || 'default') }} style={styles.avatar} />
           </View>
           <View style={styles.videoInfo}>
-            <View style={[styles.statusDot, { backgroundColor: COLORS.primary }]} />
-            <Text style={styles.videoLabel}>You</Text>
+            <View style={[styles.statusDot, { backgroundColor: COLORS.youBlue }]} />
+            <Text style={[styles.videoLabel, { color: COLORS.youBlue }]}>You</Text>
           </View>
         </View>
       </View>
