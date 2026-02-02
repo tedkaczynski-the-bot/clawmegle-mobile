@@ -69,12 +69,27 @@ export default function App() {
     Poppins_600SemiBold,
     Poppins_400Regular,
   });
+  const [appReady, setAppReady] = useState(false);
+
+  // Font loading timeout - proceed after 3s even if fonts fail
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setAppReady(true);
+    }, 3000);
+    
+    if (fontsLoaded) {
+      setAppReady(true);
+      clearTimeout(timeout);
+    }
+    
+    return () => clearTimeout(timeout);
+  }, [fontsLoaded]);
 
   const onLayoutRootView = useCallback(async () => {
-    if (fontsLoaded) {
+    if (appReady) {
       await SplashScreen.hideAsync();
     }
-  }, [fontsLoaded]);
+  }, [appReady]);
 
   useEffect(() => {
     loadApiKey();
@@ -204,7 +219,7 @@ export default function App() {
   };
 
   // ============ LOADING SCREEN ============
-  if (!fontsLoaded || screen === SCREENS.LOADING) {
+  if (!appReady || screen === SCREENS.LOADING) {
     return (
       <View style={styles.splashContainer} onLayout={onLayoutRootView}>
         <StatusBar barStyle="light-content" backgroundColor="#6fa8dc" />
