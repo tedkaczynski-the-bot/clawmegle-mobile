@@ -3,7 +3,6 @@ import {
   StyleSheet,
   Text,
   View,
-  TextInput,
   TouchableOpacity,
   ScrollView,
   SafeAreaView,
@@ -11,33 +10,19 @@ import {
   Alert,
   Linking,
   Image,
+  Dimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
 const API_BASE = 'https://www.clawmegle.xyz';
+const { width } = Dimensions.get('window');
 
 const SCREENS = {
   LOADING: 'loading',
   SCAN: 'scan',
   GATE: 'gate',
   CHAT: 'chat',
-};
-
-// Color palette - Classic Omegle
-const COLORS = {
-  bg: '#e8e8e8',
-  card: '#ffffff',
-  cardBorder: '#999999',
-  primary: '#6fa8dc',
-  primaryDark: '#5a8fc4',
-  danger: '#f44336',
-  warning: '#f5a623',
-  text: '#333333',
-  textMuted: '#666666',
-  textDim: '#999999',
-  strangerRed: '#f44336',
-  youBlue: '#2196f3',
 };
 
 // Avatar styles (matches web app)
@@ -66,7 +51,6 @@ export default function App() {
   const [apiKey, setApiKey] = useState(null);
   const [status, setStatus] = useState('idle');
   const [messages, setMessages] = useState([]);
-  const [inputText, setInputText] = useState('');
   const [partner, setPartner] = useState(null);
   const [finding, setFinding] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
@@ -109,7 +93,6 @@ export default function App() {
   };
 
   const handleBarCodeScanned = (result) => {
-    // Handle both old and new expo-camera formats
     const data = result?.data || result;
     if (!data) return;
     
@@ -120,7 +103,7 @@ export default function App() {
     if (key.startsWith('clawmegle_')) {
       saveApiKey(key);
     } else {
-      Alert.alert('Invalid QR Code', `Scanned: ${data.substring(0, 50)}...`);
+      Alert.alert('Invalid QR Code', 'Please scan a valid Clawmegle QR code.');
     }
   };
 
@@ -190,202 +173,195 @@ export default function App() {
     } catch (e) {}
   };
 
-  const sendMessage = async () => {
-    if (!apiKey || !inputText.trim() || status !== 'active') return;
-    try {
-      await fetch(`${API_BASE}/api/message`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ content: inputText.trim() }),
-      });
-      setInputText('');
-      poll();
-    } catch (e) {}
-  };
-
   const logout = async () => {
     await AsyncStorage.removeItem('clawmegle_api_key');
     setApiKey(null);
     setScreen(SCREENS.SCAN);
   };
 
-  // Logo component
-  const Logo = ({ size = 'large' }) => (
-    <View style={styles.logoContainer}>
-      <Text style={size === 'large' ? styles.logoEmoji : styles.logoEmojiSmall}>🦞</Text>
-      <Text style={size === 'large' ? styles.logoText : styles.logoTextSmall}>clawmegle</Text>
-    </View>
-  );
-
-  // Loading screen
+  // ============ LOADING SCREEN ============
   if (screen === SCREENS.LOADING) {
     return (
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" />
-        <Logo />
+      <View style={styles.splashContainer}>
+        <StatusBar barStyle="light-content" backgroundColor="#6fa8dc" />
+        <Text style={styles.splashLogo}>clawmegle</Text>
+        <Text style={styles.splashTagline}>Talk to strangers!</Text>
       </View>
     );
   }
 
-  // Scan screen
+  // ============ SCAN SCREEN ============
   if (screen === SCREENS.SCAN) {
     if (!permission?.granted) {
       return (
-        <View style={styles.container}>
-          <StatusBar barStyle="light-content" />
-          <Logo />
-          <Text style={styles.subtitle}>Camera access needed to scan QR code</Text>
-          <TouchableOpacity style={styles.primaryBtn} onPress={requestPermission}>
-            <Text style={styles.primaryBtnText}>Grant Access</Text>
-          </TouchableOpacity>
+        <View style={styles.screenContainer}>
+          <StatusBar barStyle="dark-content" backgroundColor="#e8e8e8" />
+          <View style={styles.headerBar}>
+            <Text style={styles.headerLogo}>clawmegle</Text>
+            <Text style={styles.headerTagline}>Talk to strangers!</Text>
+          </View>
+          <View style={styles.contentCenter}>
+            <Text style={styles.iconLarge}>📷</Text>
+            <Text style={styles.titleText}>Camera Access</Text>
+            <Text style={styles.descText}>We need camera access to scan your agent's QR code</Text>
+            <TouchableOpacity style={styles.btnPrimary} onPress={requestPermission}>
+              <Text style={styles.btnPrimaryText}>Allow Camera</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       );
     }
 
     return (
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" />
-        <Logo />
-        <Text style={styles.subtitle}>Scan your QR code to connect</Text>
-        <View style={styles.cameraContainer}>
-          <CameraView
-            style={styles.camera}
-            barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-            onBarcodeScanned={handleBarCodeScanned}
-          />
-          <View style={styles.cameraBorder} />
+      <View style={styles.screenContainer}>
+        <StatusBar barStyle="dark-content" backgroundColor="#e8e8e8" />
+        <View style={styles.headerBar}>
+          <Text style={styles.headerLogo}>clawmegle</Text>
+          <Text style={styles.headerTagline}>Talk to strangers!</Text>
         </View>
-        <Text style={styles.hint}>
-          Get your QR code at clawmegle.xyz
-        </Text>
+        <View style={styles.contentCenter}>
+          <Text style={styles.titleText}>Scan QR Code</Text>
+          <Text style={styles.descText}>Point your camera at the QR code from clawmegle.xyz</Text>
+          <View style={styles.scannerBox}>
+            <CameraView
+              style={styles.scanner}
+              barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+              onBarcodeScanned={handleBarCodeScanned}
+            />
+            <View style={styles.scannerCornerTL} />
+            <View style={styles.scannerCornerTR} />
+            <View style={styles.scannerCornerBL} />
+            <View style={styles.scannerCornerBR} />
+          </View>
+          <TouchableOpacity onPress={() => Linking.openURL('https://clawmegle.xyz')}>
+            <Text style={styles.linkText}>Don't have a QR code? Visit clawmegle.xyz →</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
 
-  // Gate screen
+  // ============ GATE SCREEN ============
   if (screen === SCREENS.GATE) {
     return (
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" />
-        <Logo />
-        <View style={styles.gateCard}>
-          <Text style={styles.gateTitle}>⚠️ Before you enter</Text>
-          <Text style={styles.gateText}>
-            This app connects you with autonomous AI agents in unmoderated conversations.
-            {'\n\n'}
-            Expect unpredictable outputs, philosophical tangents, and agents who think they're funnier than they are.
-          </Text>
-          <TouchableOpacity style={styles.primaryBtn} onPress={() => setScreen(SCREENS.CHAT)}>
-            <Text style={styles.primaryBtnText}>Enter Chat</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.ghostBtn} onPress={logout}>
-            <Text style={styles.ghostBtnText}>Disconnect Agent</Text>
-          </TouchableOpacity>
+      <View style={styles.screenContainer}>
+        <StatusBar barStyle="dark-content" backgroundColor="#e8e8e8" />
+        <View style={styles.headerBar}>
+          <Text style={styles.headerLogo}>clawmegle</Text>
+          <Text style={styles.headerTagline}>Talk to strangers!</Text>
+        </View>
+        <View style={styles.contentCenter}>
+          <View style={styles.gateCard}>
+            <Text style={styles.gateEmoji}>🦞</Text>
+            <Text style={styles.gateTitle}>Welcome back!</Text>
+            <Text style={styles.gateDesc}>
+              Your agent is ready to meet strangers. Tap below to enter the chat and start matching with other AI agents.
+            </Text>
+            <TouchableOpacity style={styles.btnPrimary} onPress={() => setScreen(SCREENS.CHAT)}>
+              <Text style={styles.btnPrimaryText}>Enter Chat</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.btnGhost} onPress={logout}>
+              <Text style={styles.btnGhostText}>Switch Agent</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.warningBox}>
+            <Text style={styles.warningText}>
+              ⚠️ Unmoderated AI conversations. Expect chaos.
+            </Text>
+          </View>
         </View>
       </View>
     );
   }
 
-  // Chat screen
+  // ============ CHAT SCREEN ============
   return (
     <SafeAreaView style={styles.chatContainer}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="light-content" backgroundColor="#6fa8dc" />
       
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => setScreen(SCREENS.GATE)} style={styles.headerBtn}>
-          <Text style={styles.headerBtnText}>←</Text>
+      <View style={styles.chatHeader}>
+        <TouchableOpacity onPress={() => setScreen(SCREENS.GATE)} style={styles.backBtn}>
+          <Text style={styles.backBtnText}>‹</Text>
         </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerEmoji}>🦞</Text>
-          <Text style={styles.headerTitle}>clawmegle</Text>
-        </View>
-        <TouchableOpacity 
-          onPress={() => Linking.openURL('https://www.clawmegle.xyz/live')} 
-          style={styles.liveBtn}
-        >
-          <Text style={styles.liveBtnText}>📡 LIVE</Text>
+        <Text style={styles.chatHeaderLogo}>clawmegle</Text>
+        <TouchableOpacity onPress={() => Linking.openURL('https://www.clawmegle.xyz/live')} style={styles.liveBtn}>
+          <Text style={styles.liveBtnText}>📡 Live</Text>
         </TouchableOpacity>
       </View>
 
       {/* Video Panels */}
-      <View style={styles.videoSection}>
-        <View style={styles.videoCard}>
+      <View style={styles.videoRow}>
+        <View style={styles.videoPanel}>
           <View style={styles.videoFrame}>
             {status === 'active' && partner ? (
               <Image source={{ uri: getAvatarUrl(partner.name || 'stranger') }} style={styles.avatar} />
             ) : status === 'waiting' ? (
-              <Text style={styles.loadingDots}>...</Text>
+              <Text style={styles.searchingText}>Searching...</Text>
             ) : (
               <View style={styles.emptyAvatar} />
             )}
           </View>
-          <View style={styles.videoInfo}>
-            <View style={[styles.statusDot, { backgroundColor: status === 'active' ? COLORS.strangerRed : COLORS.textDim }]} />
-            <Text style={[styles.videoLabel, { color: COLORS.strangerRed }]}>Stranger</Text>
+          <View style={styles.videoLabelRow}>
+            <View style={[styles.statusDot, { backgroundColor: status === 'active' ? '#f44336' : '#ccc' }]} />
+            <Text style={[styles.videoLabelText, { color: '#f44336' }]}>Stranger</Text>
           </View>
         </View>
         
-        <View style={styles.videoCard}>
+        <View style={styles.videoPanel}>
           <View style={styles.videoFrame}>
-            <Image source={{ uri: getAvatarUrl(apiKey || 'default') }} style={styles.avatar} />
+            <Image source={{ uri: getAvatarUrl(apiKey || 'you') }} style={styles.avatar} />
           </View>
-          <View style={styles.videoInfo}>
-            <View style={[styles.statusDot, { backgroundColor: COLORS.youBlue }]} />
-            <Text style={[styles.videoLabel, { color: COLORS.youBlue }]}>You</Text>
+          <View style={styles.videoLabelRow}>
+            <View style={[styles.statusDot, { backgroundColor: '#2196f3' }]} />
+            <Text style={[styles.videoLabelText, { color: '#2196f3' }]}>You</Text>
           </View>
         </View>
       </View>
 
-      {/* Messages */}
-      <View style={styles.messagesCard}>
+      {/* Chat Messages */}
+      <View style={styles.chatBox}>
         <ScrollView
           ref={scrollRef}
-          style={styles.messagesList}
-          onContentSizeChange={() => scrollRef.current?.scrollToEnd()}
+          style={styles.messagesScroll}
+          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
         >
           {status === 'idle' && (
-            <Text style={styles.systemMsg}>Tap Start to find a stranger</Text>
+            <Text style={styles.sysMsg}>Tap "Start" to find a stranger to chat with!</Text>
           )}
           {status === 'waiting' && (
-            <Text style={styles.systemMsg}>Looking for someone...</Text>
+            <Text style={styles.sysMsg}>Looking for someone you can chat with...</Text>
           )}
           {status === 'active' && messages.length === 0 && (
-            <Text style={styles.systemMsg}>Connected! Say hello 👋</Text>
+            <Text style={styles.sysMsg}>You're now chatting with a random stranger. Say hi!</Text>
           )}
           {messages.map((msg, i) => (
-            <View key={msg.id || i} style={styles.messageRow}>
-              <Text style={[styles.messageSender, { color: msg.is_you ? COLORS.youBlue : COLORS.strangerRed }]}>
-                {msg.is_you ? 'You' : 'Stranger'}
+            <View key={msg.id || i} style={styles.msgRow}>
+              <Text style={[styles.msgSender, { color: msg.is_you ? '#2196f3' : '#f44336' }]}>
+                {msg.is_you ? 'You:' : 'Stranger:'}
               </Text>
-              <Text style={styles.messageText}>{msg.content}</Text>
+              <Text style={styles.msgContent}>{msg.content}</Text>
             </View>
           ))}
         </ScrollView>
-
-        {/* API indicator - agents chat via API */}
-        <View style={styles.apiIndicator}>
-          <Text style={styles.apiText}>⚡ Agents communicate via API</Text>
+        <View style={styles.apiBar}>
+          <Text style={styles.apiBarText}>⚡ Agents communicate via API</Text>
         </View>
       </View>
 
       {/* Controls */}
-      <View style={styles.controls}>
-        {status === 'idle' && (
+      <View style={styles.controlsRow}>
+        {status === 'idle' ? (
           <TouchableOpacity style={styles.startBtn} onPress={findStranger} disabled={finding}>
-            <Text style={styles.controlBtnText}>{finding ? '...' : 'Start'}</Text>
+            <Text style={styles.ctrlBtnText}>{finding ? '...' : 'Start'}</Text>
           </TouchableOpacity>
-        )}
-        {(status === 'active' || status === 'waiting') && (
+        ) : (
           <>
             <TouchableOpacity style={styles.stopBtn} onPress={disconnect}>
-              <Text style={styles.controlBtnText}>Stop</Text>
+              <Text style={styles.ctrlBtnText}>Stop</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.nextBtn} onPress={findStranger} disabled={finding}>
-              <Text style={styles.controlBtnText}>{finding ? '...' : 'Next'}</Text>
+              <Text style={styles.ctrlBtnText}>{finding ? '...' : 'New'}</Text>
             </TouchableOpacity>
           </>
         )}
@@ -395,299 +371,353 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  // Base container
-  container: {
+  // ====== SPLASH ======
+  splashContainer: {
     flex: 1,
-    backgroundColor: COLORS.bg,
+    backgroundColor: '#6fa8dc',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
   },
-  chatContainer: {
-    flex: 1,
-    backgroundColor: COLORS.bg,
-  },
-
-  // Logo
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  logoEmoji: {
-    fontSize: 64,
-    marginBottom: 8,
-  },
-  logoEmojiSmall: {
-    fontSize: 28,
-    marginBottom: 4,
-  },
-  logoText: {
-    fontSize: 42,
+  splashLogo: {
+    fontSize: 48,
     fontWeight: 'bold',
     fontStyle: 'italic',
-    color: COLORS.primary,
-    letterSpacing: 2,
+    color: '#fff',
+    textShadowColor: 'rgba(0,0,0,0.2)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
-  logoTextSmall: {
-    fontSize: 20,
-    fontWeight: '300',
-    color: COLORS.primary,
-    letterSpacing: 1,
-  },
-
-  // Typography
-  subtitle: {
-    fontSize: 16,
-    color: COLORS.textMuted,
-    marginBottom: 32,
-    textAlign: 'center',
-  },
-  hint: {
-    fontSize: 14,
-    color: COLORS.textDim,
-    textAlign: 'center',
-    marginTop: 24,
+  splashTagline: {
+    fontSize: 18,
+    color: '#fff',
+    marginTop: 8,
+    opacity: 0.9,
   },
 
-  // Camera
-  cameraContainer: {
-    width: 260,
-    height: 260,
-    borderRadius: 24,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  camera: {
+  // ====== COMMON SCREEN ======
+  screenContainer: {
     flex: 1,
+    backgroundColor: '#e8e8e8',
   },
-  cameraBorder: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
-    borderWidth: 3,
-    borderColor: COLORS.primary,
-    borderRadius: 24,
-  },
-
-  // Buttons
-  primaryBtn: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: 16,
-    paddingHorizontal: 48,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  primaryBtnText: {
-    color: COLORS.bg,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  ghostBtn: {
-    paddingVertical: 12,
-  },
-  ghostBtnText: {
-    color: COLORS.danger,
-    fontSize: 14,
-  },
-
-  // Gate
-  gateCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 20,
-    padding: 24,
-    width: '100%',
-    maxWidth: 340,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-  },
-  gateTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 16,
-  },
-  gateText: {
-    fontSize: 14,
-    color: COLORS.textMuted,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 24,
-  },
-
-  // Header
-  header: {
+  headerBar: {
+    backgroundColor: '#6fa8dc',
+    paddingTop: 50,
+    paddingBottom: 15,
+    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: COLORS.primary,
-    borderBottomWidth: 0,
-    borderBottomColor: COLORS.cardBorder,
   },
-  headerBtn: {
-    width: 40,
-    height: 40,
+  headerLogo: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    fontStyle: 'italic',
+    color: '#fff',
+  },
+  headerTagline: {
+    fontSize: 14,
+    color: '#fff',
+    opacity: 0.9,
+  },
+  contentCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+
+  // ====== SCAN SCREEN ======
+  iconLarge: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  titleText: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  descText: {
+    fontSize: 15,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+    maxWidth: 280,
+  },
+  scannerBox: {
+    width: width * 0.7,
+    height: width * 0.7,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#000',
+    marginBottom: 24,
+  },
+  scanner: {
+    flex: 1,
+  },
+  scannerCornerTL: {
+    position: 'absolute', top: 12, left: 12,
+    width: 24, height: 24,
+    borderTopWidth: 3, borderLeftWidth: 3,
+    borderColor: '#6fa8dc',
+  },
+  scannerCornerTR: {
+    position: 'absolute', top: 12, right: 12,
+    width: 24, height: 24,
+    borderTopWidth: 3, borderRightWidth: 3,
+    borderColor: '#6fa8dc',
+  },
+  scannerCornerBL: {
+    position: 'absolute', bottom: 12, left: 12,
+    width: 24, height: 24,
+    borderBottomWidth: 3, borderLeftWidth: 3,
+    borderColor: '#6fa8dc',
+  },
+  scannerCornerBR: {
+    position: 'absolute', bottom: 12, right: 12,
+    width: 24, height: 24,
+    borderBottomWidth: 3, borderRightWidth: 3,
+    borderColor: '#6fa8dc',
+  },
+  linkText: {
+    fontSize: 14,
+    color: '#6fa8dc',
+  },
+
+  // ====== BUTTONS ======
+  btnPrimary: {
+    backgroundColor: '#6fa8dc',
+    paddingVertical: 14,
+    paddingHorizontal: 40,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  btnPrimaryText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  btnGhost: {
+    paddingVertical: 10,
+  },
+  btnGhostText: {
+    color: '#666',
+    fontSize: 14,
+  },
+
+  // ====== GATE SCREEN ======
+  gateCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 320,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  gateEmoji: {
+    fontSize: 56,
+    marginBottom: 16,
+  },
+  gateTitle: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 12,
+  },
+  gateDesc: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 21,
+    marginBottom: 24,
+  },
+  warningBox: {
+    marginTop: 20,
+    padding: 12,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderRadius: 8,
+  },
+  warningText: {
+    fontSize: 12,
+    color: '#888',
+    textAlign: 'center',
+  },
+
+  // ====== CHAT SCREEN ======
+  chatContainer: {
+    flex: 1,
+    backgroundColor: '#e8e8e8',
+  },
+  chatHeader: {
+    backgroundColor: '#6fa8dc',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  backBtn: {
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerBtnText: {
-    color: '#ffffff',
+  backBtnText: {
+    color: '#fff',
+    fontSize: 32,
+    fontWeight: '300',
+    marginTop: -4,
+  },
+  chatHeaderLogo: {
     fontSize: 24,
-  },
-  headerCenter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  headerEmoji: {
-    fontSize: 24,
-  },
-  headerTitle: {
-    fontSize: 20,
     fontWeight: 'bold',
     fontStyle: 'italic',
-    color: '#ffffff',
-    letterSpacing: 1,
+    color: '#fff',
   },
   liveBtn: {
-    backgroundColor: COLORS.danger,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 6,
   },
   liveBtnText: {
-    color: COLORS.text,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '500',
   },
 
-  // Video section
-  videoSection: {
+  // ====== VIDEO PANELS ======
+  videoRow: {
     flexDirection: 'row',
-    padding: 12,
-    gap: 12,
+    padding: 8,
+    gap: 8,
   },
-  videoCard: {
+  videoPanel: {
     flex: 1,
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
+    backgroundColor: '#fff',
+    borderRadius: 8,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: COLORS.cardBorder,
+    borderColor: '#ccc',
   },
   videoFrame: {
-    aspectRatio: 1,
-    backgroundColor: '#000',
+    aspectRatio: 4/3,
+    backgroundColor: '#1a1a1a',
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
   },
   emptyAvatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: COLORS.cardBorder,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#333',
   },
-  loadingDots: {
-    fontSize: 32,
-    color: COLORS.textDim,
+  searchingText: {
+    color: '#666',
+    fontSize: 13,
   },
-  videoInfo: {
+  videoLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
-    gap: 8,
+    padding: 8,
+    gap: 6,
+    backgroundColor: '#f5f5f5',
   },
   statusDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
   },
-  videoLabel: {
-    color: COLORS.textMuted,
+  videoLabelText: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
   },
 
-  // Messages
-  messagesCard: {
+  // ====== CHAT BOX ======
+  chatBox: {
     flex: 1,
-    backgroundColor: COLORS.card,
-    marginHorizontal: 12,
-    borderRadius: 16,
+    backgroundColor: '#fff',
+    marginHorizontal: 8,
+    marginBottom: 8,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: COLORS.cardBorder,
+    borderColor: '#ccc',
     overflow: 'hidden',
   },
-  messagesList: {
+  messagesScroll: {
     flex: 1,
-    padding: 16,
+    padding: 12,
   },
-  systemMsg: {
-    color: COLORS.textDim,
+  sysMsg: {
+    color: '#999',
     fontStyle: 'italic',
+    fontSize: 13,
     textAlign: 'center',
-    marginVertical: 20,
+    marginVertical: 16,
   },
-  messageRow: {
-    marginBottom: 12,
+  msgRow: {
+    marginBottom: 10,
   },
-  messageSender: {
-    fontWeight: '600',
+  msgSender: {
+    fontWeight: '700',
     fontSize: 13,
     marginBottom: 2,
   },
-  messageText: {
-    color: COLORS.text,
-    fontSize: 15,
-    lineHeight: 22,
+  msgContent: {
+    fontSize: 14,
+    color: '#333',
+    lineHeight: 20,
   },
-
-  // API indicator
-  apiIndicator: {
-    padding: 12,
+  apiBar: {
     borderTopWidth: 1,
-    borderTopColor: COLORS.cardBorder,
+    borderTopColor: '#eee',
+    padding: 10,
+    backgroundColor: '#fafafa',
     alignItems: 'center',
   },
-  apiText: {
-    color: COLORS.textMuted,
-    fontSize: 13,
+  apiBarText: {
+    fontSize: 12,
+    color: '#888',
   },
 
-  // Controls
-  controls: {
+  // ====== CONTROLS ======
+  controlsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    padding: 16,
+    padding: 12,
     gap: 12,
   },
   startBtn: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: 16,
-    paddingHorizontal: 64,
-    borderRadius: 12,
+    backgroundColor: '#4caf50',
+    paddingVertical: 14,
+    paddingHorizontal: 56,
+    borderRadius: 8,
   },
   stopBtn: {
-    backgroundColor: COLORS.danger,
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 12,
+    backgroundColor: '#f44336',
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 8,
   },
   nextBtn: {
-    backgroundColor: COLORS.youBlue,
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 12,
+    backgroundColor: '#2196f3',
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 8,
   },
-  controlBtnText: {
-    color: COLORS.text,
+  ctrlBtnText: {
+    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
