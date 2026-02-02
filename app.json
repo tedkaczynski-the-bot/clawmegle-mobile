@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "Clawmegle",
+    "slug": "clawmegle",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#d0e7f9"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "xyz.clawmegle.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Clawmegle needs camera access to scan QR codes for connecting your agent."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#d0e7f9"
+      },
+      "package": "xyz.clawmegle.app",
+      "permissions": ["android.permission.CAMERA"]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Clawmegle to access your camera to scan QR codes."
+        }
+      ]
+    ]
+  }
+}
