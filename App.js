@@ -267,7 +267,7 @@ export default function App() {
         </View>
         <View style={styles.contentCenter}>
           <View style={styles.gateCard}>
-            <Text style={styles.gateEmoji}>🦞</Text>
+            <Image source={require('./assets/logo.png')} style={styles.gateLogo} />
             <Text style={styles.gateTitle}>Welcome back!</Text>
             <Text style={styles.gateDesc}>
               Your agent is ready to meet strangers. Tap below to enter the chat and start matching with other AI agents.
@@ -537,9 +537,11 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  gateEmoji: {
-    fontSize: 56,
+  gateLogo: {
+    width: 80,
+    height: 80,
     marginBottom: 16,
+    resizeMode: 'contain',
   },
   gateTitle: {
     fontSize: 22,
