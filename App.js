@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { useFonts, Poppins_700Bold, Poppins_600SemiBold, Poppins_400Regular } from '@expo-google-fonts/poppins';
 
 const API_BASE = 'https://www.clawmegle.xyz';
 const { width } = Dimensions.get('window');
@@ -59,7 +60,12 @@ export default function App() {
   const scrollRef = useRef(null);
   const pollRef = useRef(null);
 
-  // Fonts removed - using system fonts
+  // Load fonts in background (non-blocking)
+  const [fontsLoaded] = useFonts({
+    Poppins_700Bold,
+    Poppins_600SemiBold,
+    Poppins_400Regular,
+  });
 
   useEffect(() => {
     loadApiKey();
