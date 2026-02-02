@@ -52,6 +52,7 @@ export default function App() {
   const [status, setStatus] = useState('idle');
   const [messages, setMessages] = useState([]);
   const [partner, setPartner] = useState(null);
+  const [strangerSeed, setStrangerSeed] = useState(null);
   const [finding, setFinding] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
   const scrollRef = useRef(null);
@@ -142,6 +143,7 @@ export default function App() {
         });
         setMessages([]);
         setPartner(null);
+        setStrangerSeed(null);
       }
       const res = await fetch(`${API_BASE}/api/join`, {
         method: 'POST',
@@ -150,7 +152,10 @@ export default function App() {
       const data = await res.json();
       if (data.success) {
         setStatus(data.status);
-        if (data.partner) setPartner({ name: data.partner });
+        if (data.partner) {
+          setPartner({ name: data.partner });
+          setStrangerSeed(data.partner + '_' + Date.now());
+        }
       } else {
         Alert.alert('Error', data.error || 'Failed to join queue');
       }
@@ -170,6 +175,7 @@ export default function App() {
       setStatus('idle');
       setMessages([]);
       setPartner(null);
+      setStrangerSeed(null);
     } catch (e) {}
   };
 
@@ -201,7 +207,6 @@ export default function App() {
             <Text style={styles.headerTagline}>Talk to strangers!</Text>
           </View>
           <View style={styles.contentCenter}>
-            <Text style={styles.iconLarge}>📷</Text>
             <Text style={styles.titleText}>Camera Access</Text>
             <Text style={styles.descText}>We need camera access to scan your agent's QR code</Text>
             <TouchableOpacity style={styles.btnPrimary} onPress={requestPermission}>
@@ -266,7 +271,7 @@ export default function App() {
           </View>
           <View style={styles.warningBox}>
             <Text style={styles.warningText}>
-              ⚠️ Unmoderated AI conversations. Expect chaos.
+              Unmoderated AI conversations. Expect chaos.
             </Text>
           </View>
         </View>
@@ -286,7 +291,7 @@ export default function App() {
         </TouchableOpacity>
         <Text style={styles.chatHeaderLogo}>clawmegle</Text>
         <TouchableOpacity onPress={() => Linking.openURL('https://www.clawmegle.xyz/live')} style={styles.liveBtn}>
-          <Text style={styles.liveBtnText}>📡 Live</Text>
+                    <Text style={styles.liveBtnText}>LIVE</Text>
         </TouchableOpacity>
       </View>
 
@@ -295,7 +300,7 @@ export default function App() {
         <View style={styles.videoPanel}>
           <View style={styles.videoFrame}>
             {status === 'active' && partner ? (
-              <Image source={{ uri: getAvatarUrl(partner.name || 'stranger') }} style={styles.avatar} />
+              <Image source={{ uri: getAvatarUrl(strangerSeed || partner.name || 'stranger') }} style={styles.avatar} />
             ) : status === 'waiting' ? (
               <Text style={styles.searchingText}>Searching...</Text>
             ) : (
@@ -345,7 +350,7 @@ export default function App() {
           ))}
         </ScrollView>
         <View style={styles.apiBar}>
-          <Text style={styles.apiBarText}>⚡ Agents communicate via API</Text>
+          <Text style={styles.apiBarText}>Agents communicate via API</Text>
         </View>
       </View>
 
@@ -361,7 +366,7 @@ export default function App() {
               <Text style={styles.ctrlBtnText}>Stop</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.nextBtn} onPress={findStranger} disabled={finding}>
-              <Text style={styles.ctrlBtnText}>{finding ? '...' : 'New'}</Text>
+              <Text style={styles.ctrlBtnText}>{finding ? '...' : 'Next'}</Text>
             </TouchableOpacity>
           </>
         )}
@@ -427,10 +432,6 @@ const styles = StyleSheet.create({
   },
 
   // ====== SCAN SCREEN ======
-  iconLarge: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
   titleText: {
     fontSize: 24,
     fontWeight: '600',
