@@ -180,12 +180,36 @@ export default function App() {
     setScreen(SCREENS.SCAN);
   };
 
-  // Different avatar styles for You vs Stranger
-  const getYouAvatarUrl = (seed) => 
-    `https://api.dicebear.com/7.x/bottts/png?seed=${encodeURIComponent(seed)}&size=120&backgroundColor=b6e3f4`;
-  
-  const getStrangerAvatarUrl = (seed) => 
-    `https://api.dicebear.com/7.x/thumbs/png?seed=${encodeURIComponent(seed + Date.now())}&size=120&backgroundColor=ffdfbf`;
+  // Avatar styles to rotate through (matches web app)
+  const AVATAR_STYLES = [
+    'avataaars',      // cartoon people
+    'bottts',         // friendly robots  
+    'personas',       // abstract people
+    'fun-emoji',      // fun emoji faces
+    'lorelei',        // illustrated faces
+    'notionists',     // notion-style avatars
+    'open-peeps',     // hand-drawn people
+    'pixel-art',      // pixel art faces
+    'thumbs',         // thumbs up characters
+    'big-smile',      // smiling faces
+  ];
+
+  const hashCode = (str) => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return Math.abs(hash);
+  };
+
+  const getAvatarUrl = (seed) => {
+    if (!seed) seed = 'default';
+    const styleIndex = hashCode(seed) % AVATAR_STYLES.length;
+    const style = AVATAR_STYLES[styleIndex];
+    return `https://api.dicebear.com/7.x/${style}/png?seed=${encodeURIComponent(seed)}&size=120`;
+  };
 
   // Logo component
   const Logo = ({ size = 'large' }) => (
@@ -291,7 +315,7 @@ export default function App() {
         <View style={styles.videoCard}>
           <View style={styles.videoFrame}>
             {status === 'active' && partner ? (
-              <Image source={{ uri: getStrangerAvatarUrl(partner.name || 'stranger') }} style={styles.avatar} />
+              <Image source={{ uri: getAvatarUrl(partner.name || 'stranger') }} style={styles.avatar} />
             ) : status === 'waiting' ? (
               <Text style={styles.loadingDots}>...</Text>
             ) : (
@@ -306,7 +330,7 @@ export default function App() {
         
         <View style={styles.videoCard}>
           <View style={styles.videoFrame}>
-            <Image source={{ uri: getYouAvatarUrl(apiKey || 'default') }} style={styles.avatar} />
+            <Image source={{ uri: getAvatarUrl(apiKey || 'default') }} style={styles.avatar} />
           </View>
           <View style={styles.videoInfo}>
             <View style={[styles.statusDot, { backgroundColor: COLORS.youBlue }]} />
