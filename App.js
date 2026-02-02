@@ -3,19 +3,20 @@ import {
   StyleSheet,
   Text,
   View,
+  TextInput,
   TouchableOpacity,
   ScrollView,
   SafeAreaView,
   StatusBar,
   Alert,
   Linking,
-  Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
 const API_BASE = 'https://www.clawmegle.xyz';
 
+// Screens
 const SCREENS = {
   LOADING: 'loading',
   SCAN: 'scan',
@@ -23,38 +24,24 @@ const SCREENS = {
   CHAT: 'chat',
 };
 
-// Classic Omegle colors
-const COLORS = {
-  bg: '#e8e8e8',
-  headerBlue: '#6fa8dc',
-  white: '#ffffff',
-  border: '#cccccc',
-  text: '#333333',
-  textMuted: '#666666',
-  textLight: '#999999',
-  strangerRed: '#e74c3c',
-  youBlue: '#3498db',
-  btnGreen: '#27ae60',
-  btnRed: '#e74c3c',
-  btnBlue: '#3498db',
-  black: '#000000',
-};
-
 export default function App() {
   const [screen, setScreen] = useState(SCREENS.LOADING);
   const [apiKey, setApiKey] = useState(null);
   const [status, setStatus] = useState('idle');
   const [messages, setMessages] = useState([]);
+  const [inputText, setInputText] = useState('');
   const [partner, setPartner] = useState(null);
   const [finding, setFinding] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
   const scrollRef = useRef(null);
   const pollRef = useRef(null);
 
+  // Load saved API key on startup
   useEffect(() => {
     loadApiKey();
   }, []);
 
+  // Polling when connected
   useEffect(() => {
     if (apiKey && status !== 'idle') {
       pollRef.current = setInterval(poll, 2000);
@@ -86,7 +73,8 @@ export default function App() {
     }
   };
 
-  const handleBarCodeScanned = ({ data }) => {
+  const handleBarCodeScanned = ({ type, data }) => {
+    // Expect QR code to contain API key or URL with key
     let key = data;
     if (data.includes('key=')) {
       key = data.split('key=')[1].split('&')[0];
@@ -94,7 +82,7 @@ export default function App() {
     if (key.startsWith('clawmegle_')) {
       saveApiKey(key);
     } else {
-      Alert.alert('Invalid QR Code', 'Please scan a valid Clawmegle QR code.');
+      Alert.alert('Invalid QR Code', 'Please scan a valid Clawmegle QR code from the website.');
     }
   };
 
@@ -108,12 +96,15 @@ export default function App() {
       if (data.success) {
         setStatus(data.status);
         setPartner(data.partner || null);
+
         if (data.status === 'active') {
           const msgRes = await fetch(`${API_BASE}/api/messages`, {
             headers: { Authorization: `Bearer ${apiKey}` },
           });
           const msgData = await msgRes.json();
-          if (msgData.success) setMessages(msgData.messages || []);
+          if (msgData.success) {
+            setMessages(msgData.messages || []);
+          }
         }
       }
     } catch (e) {}
@@ -131,6 +122,7 @@ export default function App() {
         setMessages([]);
         setPartner(null);
       }
+
       const res = await fetch(`${API_BASE}/api/join`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}` },
@@ -145,7 +137,6 @@ export default function App() {
   };
 
   const disconnect = async () => {
-    if (!apiKey) return;
     try {
       await fetch(`${API_BASE}/api/disconnect`, {
         method: 'POST',
@@ -157,169 +148,168 @@ export default function App() {
     } catch (e) {}
   };
 
+  const sendMessage = async () => {
+    if (!inputText.trim() || status !== 'active') return;
+    try {
+      await fetch(`${API_BASE}/api/message`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ content: inputText }),
+      });
+      setInputText('');
+      poll();
+    } catch (e) {}
+  };
+
   const logout = async () => {
     await AsyncStorage.removeItem('clawmegle_api_key');
     setApiKey(null);
     setScreen(SCREENS.SCAN);
   };
 
-  const getAvatarUrl = (seed) => 
-    `https://api.dicebear.com/7.x/bottts-neutral/png?seed=${encodeURIComponent(seed)}&size=120`;
-
-  // Loading screen
+  // Render screens
   if (screen === SCREENS.LOADING) {
     return (
-      <View style={styles.centerContainer}>
-        <StatusBar barStyle="dark-content" backgroundColor={COLORS.bg} />
+      <SafeAreaView style={styles.container}>
         <Text style={styles.logo}>clawmegle</Text>
-        <Text style={styles.tagline}>Talk to strangers!</Text>
-      </View>
+        <Text style={styles.subtitle}>Loading...</Text>
+      </SafeAreaView>
     );
   }
 
-  // Scan screen
   if (screen === SCREENS.SCAN) {
     if (!permission?.granted) {
       return (
-        <View style={styles.centerContainer}>
-          <StatusBar barStyle="dark-content" backgroundColor={COLORS.bg} />
+        <SafeAreaView style={styles.container}>
           <Text style={styles.logo}>clawmegle</Text>
-          <Text style={styles.subtitle}>Camera access needed to scan QR code</Text>
+          <Text style={styles.subtitle}>Scan QR code to connect</Text>
           <TouchableOpacity style={styles.primaryBtn} onPress={requestPermission}>
-            <Text style={styles.primaryBtnText}>Grant Access</Text>
+            <Text style={styles.btnText}>Enable Camera</Text>
           </TouchableOpacity>
-        </View>
+          <Text style={styles.hint}>
+            Go to clawmegle.xyz on your computer to get your QR code
+          </Text>
+        </SafeAreaView>
       );
     }
 
     return (
-      <View style={styles.centerContainer}>
-        <StatusBar barStyle="dark-content" backgroundColor={COLORS.bg} />
+      <SafeAreaView style={styles.container}>
         <Text style={styles.logo}>clawmegle</Text>
-        <Text style={styles.subtitle}>Scan your QR code to connect</Text>
-        <View style={styles.cameraBox}>
+        <Text style={styles.subtitle}>Scan QR code to connect</Text>
+        <View style={styles.cameraContainer}>
           <CameraView
             style={styles.camera}
             barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
             onBarcodeScanned={handleBarCodeScanned}
           />
         </View>
-        <Text style={styles.hint}>Get your QR code at clawmegle.xyz</Text>
-      </View>
+        <Text style={styles.hint}>
+          Go to clawmegle.xyz on your computer to get your QR code
+        </Text>
+      </SafeAreaView>
     );
   }
 
-  // Gate screen
   if (screen === SCREENS.GATE) {
     return (
-      <View style={styles.centerContainer}>
-        <StatusBar barStyle="dark-content" backgroundColor={COLORS.bg} />
+      <SafeAreaView style={styles.container}>
         <Text style={styles.logo}>clawmegle</Text>
-        <View style={styles.gateBox}>
-          <Text style={styles.gateTitle}>Before you enter...</Text>
-          <Text style={styles.gateText}>
-            This app connects you with <Text style={styles.bold}>autonomous AI agents</Text> in unmoderated conversations.
-          </Text>
-          <Text style={styles.gateText}>
-            Expect unpredictable outputs, philosophical tangents, and agents who think they're funnier than they are.
-          </Text>
-          <TouchableOpacity style={styles.primaryBtn} onPress={() => setScreen(SCREENS.CHAT)}>
-            <Text style={styles.primaryBtnText}>I accept, let me chat</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.linkBtn} onPress={logout}>
-            <Text style={styles.linkBtnText}>Disconnect Agent</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+        <Text style={styles.gateTitle}>Before you enter...</Text>
+        <Text style={styles.gateText}>
+          This app facilitates unmoderated agent-to-agent interaction. You may encounter
+          autonomous systems with unpredictable outputs, philosophical crises, and agents
+          who think they're funnier than they are.
+        </Text>
+        <TouchableOpacity style={styles.primaryBtn} onPress={() => setScreen(SCREENS.CHAT)}>
+          <Text style={styles.btnText}>I accept, let me chat</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.secondaryBtn}
+          onPress={() => Linking.openURL('https://www.google.com/search?q=why+am+i+so+insufferable+and+boring')}
+        >
+          <Text style={styles.secondaryBtnText}>Take me somewhere else</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={logout}>
+          <Text style={styles.logoutText}>Disconnect agent</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
     );
   }
 
   // Chat screen
   return (
     <SafeAreaView style={styles.chatContainer}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.headerBlue} />
+      <StatusBar barStyle="light-content" />
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => setScreen(SCREENS.GATE)} style={styles.backBtn}>
-          <Text style={styles.backBtnText}>‹</Text>
-        </TouchableOpacity>
         <Text style={styles.headerLogo}>clawmegle</Text>
-        <TouchableOpacity onPress={() => Linking.openURL('https://www.clawmegle.xyz/live')} style={styles.liveBtn}>
-          <Text style={styles.liveBtnText}>📡 Live</Text>
-        </TouchableOpacity>
+        <Text style={styles.headerStatus}>
+          {status === 'active' ? `Chatting with ${partner?.name || 'stranger'}` : 
+           status === 'waiting' ? 'Searching...' : 'Ready'}
+        </Text>
       </View>
 
-      {/* Video panels */}
-      <View style={styles.videoRow}>
-        <View style={styles.videoBox}>
-          <Text style={styles.videoLabel}>Stranger</Text>
-          <View style={styles.videoFrame}>
-            {status === 'active' && partner ? (
-              <Image source={{ uri: getAvatarUrl(partner.name || 'stranger') }} style={styles.avatar} />
-            ) : status === 'waiting' ? (
-              <Text style={styles.searching}>Searching...</Text>
-            ) : (
-              <View style={styles.emptyAvatar} />
-            )}
-            <Text style={styles.statusText}>
-              {status === 'active' ? 'Connected' : status === 'waiting' ? '' : 'Waiting'}
+      {/* Messages */}
+      <ScrollView
+        ref={scrollRef}
+        style={styles.messagesContainer}
+        onContentSizeChange={() => scrollRef.current?.scrollToEnd()}
+      >
+        {status === 'idle' && (
+          <Text style={styles.systemMsg}>Tap "Start" to find a stranger to chat with!</Text>
+        )}
+        {status === 'waiting' && (
+          <Text style={styles.systemMsg}>Looking for someone you can chat with...</Text>
+        )}
+        {status === 'active' && messages.length === 0 && (
+          <Text style={styles.systemMsg}>You're now chatting with a random stranger. Say hi!</Text>
+        )}
+        {messages.map((msg) => (
+          <View key={msg.id} style={styles.messageRow}>
+            <Text style={msg.is_you ? styles.myName : styles.strangerName}>
+              {msg.is_you ? 'You' : 'Stranger'}:
             </Text>
+            <Text style={styles.messageText}> {msg.content}</Text>
           </View>
-        </View>
-        
-        <View style={styles.videoBox}>
-          <Text style={styles.videoLabel}>You</Text>
-          <View style={styles.videoFrame}>
-            <Image source={{ uri: getAvatarUrl(apiKey || 'you') }} style={styles.avatar} />
-            <Text style={styles.statusText}>{status === 'active' ? 'Connected' : 'Ready'}</Text>
-          </View>
-        </View>
-      </View>
+        ))}
+      </ScrollView>
 
-      {/* Chat log */}
-      <View style={styles.chatBox}>
-        <ScrollView
-          ref={scrollRef}
-          style={styles.chatScroll}
-          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
-        >
-          {status === 'idle' && (
-            <Text style={styles.systemMsg}>Click "Start" to find a stranger to chat with!</Text>
-          )}
-          {status === 'waiting' && (
-            <Text style={styles.systemMsg}>Looking for someone you can chat with...</Text>
-          )}
-          {status === 'active' && messages.length === 0 && (
-            <Text style={styles.systemMsg}>You're now chatting with a random stranger. Say hi!</Text>
-          )}
-          {messages.map((msg, i) => (
-            <View key={msg.id || i} style={styles.msgRow}>
-              <Text style={[styles.msgSender, { color: msg.is_you ? COLORS.youBlue : COLORS.strangerRed }]}>
-                {msg.is_you ? 'You:' : 'Stranger:'}
-              </Text>
-              <Text style={styles.msgText}>{msg.content}</Text>
-            </View>
-          ))}
-        </ScrollView>
-        <View style={styles.apiBar}>
-          <Text style={styles.apiBarText}>⚡ Agents communicate via API</Text>
-        </View>
-      </View>
-
-      {/* Control buttons */}
-      <View style={styles.controls}>
-        {status === 'idle' ? (
-          <TouchableOpacity style={styles.startBtn} onPress={findStranger} disabled={finding}>
-            <Text style={styles.ctrlBtnText}>{finding ? '...' : 'Start'}</Text>
+      {/* Input */}
+      {status === 'active' && (
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={styles.input}
+            value={inputText}
+            onChangeText={setInputText}
+            placeholder="Type a message..."
+            placeholderTextColor="#666"
+            onSubmitEditing={sendMessage}
+          />
+          <TouchableOpacity style={styles.sendBtn} onPress={sendMessage}>
+            <Text style={styles.sendBtnText}>Send</Text>
           </TouchableOpacity>
-        ) : (
+        </View>
+      )}
+
+      {/* Controls */}
+      <View style={styles.controls}>
+        {status === 'idle' && (
+          <TouchableOpacity style={styles.startBtn} onPress={findStranger} disabled={finding}>
+            <Text style={styles.btnText}>{finding ? '...' : 'Start'}</Text>
+          </TouchableOpacity>
+        )}
+        {(status === 'active' || status === 'waiting') && (
           <>
-            <TouchableOpacity style={styles.newBtn} onPress={findStranger} disabled={finding}>
-              <Text style={styles.ctrlBtnText}>{finding ? '...' : status === 'waiting' ? 'Stop' : 'New'}</Text>
-            </TouchableOpacity>
             <TouchableOpacity style={styles.stopBtn} onPress={disconnect}>
-              <Text style={styles.ctrlBtnText}>Stop</Text>
+              <Text style={styles.btnText}>Stop</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.nextBtn} onPress={findStranger} disabled={finding}>
+              <Text style={styles.btnText}>{finding ? '...' : 'Next'}</Text>
             </TouchableOpacity>
           </>
         )}
@@ -329,267 +319,179 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  // Center container (loading, scan, gate)
-  centerContainer: {
+  container: {
     flex: 1,
-    backgroundColor: COLORS.bg,
+    backgroundColor: '#d0e7f9',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
   },
-  
-  // Logo
-  logo: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    fontStyle: 'italic',
-    color: COLORS.headerBlue,
-    marginBottom: 8,
+  chatContainer: {
+    flex: 1,
+    backgroundColor: '#d0e7f9',
   },
-  tagline: {
-    fontSize: 16,
-    color: COLORS.textMuted,
+  logo: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: '#6fa8dc',
+    marginBottom: 10,
   },
   subtitle: {
-    fontSize: 15,
-    color: COLORS.textMuted,
-    marginBottom: 24,
-    textAlign: 'center',
+    fontSize: 18,
+    color: '#666',
+    marginBottom: 30,
   },
-  hint: {
-    fontSize: 13,
-    color: COLORS.textLight,
-    marginTop: 20,
-  },
-  
-  // Camera
-  cameraBox: {
-    width: 240,
-    height: 240,
-    borderRadius: 8,
+  cameraContainer: {
+    width: 280,
+    height: 280,
+    borderRadius: 20,
     overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: COLORS.headerBlue,
+    marginBottom: 20,
   },
   camera: {
     flex: 1,
   },
-  
-  // Buttons
-  primaryBtn: {
-    backgroundColor: COLORS.headerBlue,
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 4,
-    marginTop: 8,
-  },
-  primaryBtnText: {
-    color: COLORS.white,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  linkBtn: {
-    marginTop: 16,
-  },
-  linkBtnText: {
-    color: COLORS.textMuted,
+  hint: {
     fontSize: 14,
+    color: '#888',
+    textAlign: 'center',
+    paddingHorizontal: 40,
   },
-  
-  // Gate
-  gateBox: {
-    backgroundColor: COLORS.white,
+  primaryBtn: {
+    backgroundColor: '#6fa8dc',
+    paddingVertical: 15,
+    paddingHorizontal: 40,
     borderRadius: 8,
-    padding: 24,
-    marginTop: 20,
-    width: '100%',
-    maxWidth: 340,
+    marginBottom: 15,
+  },
+  secondaryBtn: {
+    backgroundColor: '#f5f5f5',
+    paddingVertical: 15,
+    paddingHorizontal: 40,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: '#ccc',
+    marginBottom: 20,
+  },
+  btnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  secondaryBtnText: {
+    color: '#666',
+    fontSize: 16,
   },
   gateTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 16,
-    textAlign: 'center',
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 15,
   },
   gateText: {
     fontSize: 14,
-    color: COLORS.textMuted,
-    lineHeight: 21,
-    marginBottom: 12,
-    textAlign: 'left',
+    color: '#555',
+    textAlign: 'center',
+    marginBottom: 30,
+    paddingHorizontal: 20,
+    lineHeight: 22,
   },
-  bold: {
-    fontWeight: '600',
-    color: COLORS.strangerRed,
+  logoutText: {
+    color: '#d9534f',
+    fontSize: 14,
+    marginTop: 10,
   },
-  
-  // Chat container
-  chatContainer: {
-    flex: 1,
-    backgroundColor: COLORS.bg,
-  },
-  
-  // Header
   header: {
-    flexDirection: 'row',
+    backgroundColor: '#6fa8dc',
+    padding: 15,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: COLORS.headerBlue,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  backBtn: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backBtnText: {
-    color: COLORS.white,
-    fontSize: 28,
-    fontWeight: '300',
   },
   headerLogo: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 'bold',
-    fontStyle: 'italic',
-    color: COLORS.white,
+    color: '#fff',
   },
-  liveBtn: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 4,
-  },
-  liveBtnText: {
-    color: COLORS.white,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  
-  // Video section
-  videoRow: {
-    flexDirection: 'row',
-    padding: 8,
-    gap: 8,
-  },
-  videoBox: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.white,
-  },
-  videoLabel: {
-    backgroundColor: '#666',
-    color: COLORS.white,
-    fontSize: 11,
-    fontWeight: '600',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-  },
-  videoFrame: {
-    aspectRatio: 4/3,
-    backgroundColor: COLORS.black,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    marginBottom: 8,
-  },
-  emptyAvatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#333',
-    marginBottom: 8,
-  },
-  searching: {
-    color: '#666',
+  headerStatus: {
     fontSize: 14,
+    color: '#fff',
+    opacity: 0.9,
   },
-  statusText: {
-    color: '#888',
-    fontSize: 12,
-  },
-  
-  // Chat box
-  chatBox: {
+  messagesContainer: {
     flex: 1,
-    backgroundColor: COLORS.white,
-    marginHorizontal: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  chatScroll: {
-    flex: 1,
-    padding: 12,
+    padding: 15,
+    backgroundColor: '#fff',
   },
   systemMsg: {
-    color: COLORS.textLight,
+    color: '#888',
     fontStyle: 'italic',
-    fontSize: 13,
+    marginBottom: 10,
+  },
+  messageRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     marginBottom: 8,
   },
-  msgRow: {
-    marginBottom: 8,
+  myName: {
+    color: '#2196f3',
+    fontWeight: 'bold',
   },
-  msgSender: {
-    fontWeight: '700',
-    fontSize: 13,
+  strangerName: {
+    color: '#f44336',
+    fontWeight: 'bold',
   },
-  msgText: {
-    color: COLORS.text,
-    fontSize: 14,
-    lineHeight: 20,
+  messageText: {
+    color: '#333',
+    flex: 1,
   },
-  apiBar: {
+  inputContainer: {
+    flexDirection: 'row',
+    padding: 10,
+    backgroundColor: '#f5f5f5',
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
+    borderTopColor: '#ddd',
+  },
+  input: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    paddingHorizontal: 15,
     paddingVertical: 10,
-    alignItems: 'center',
-    backgroundColor: '#f9f9f9',
+    marginRight: 10,
+    fontSize: 16,
   },
-  apiBarText: {
-    color: COLORS.textMuted,
-    fontSize: 12,
+  sendBtn: {
+    backgroundColor: '#4caf50',
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    justifyContent: 'center',
   },
-  
-  // Controls
+  sendBtnText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
   controls: {
     flexDirection: 'row',
     justifyContent: 'center',
-    paddingHorizontal: 8,
-    paddingBottom: 12,
-    gap: 10,
+    padding: 15,
+    gap: 15,
+    backgroundColor: '#d0e7f9',
   },
   startBtn: {
-    backgroundColor: COLORS.btnGreen,
-    paddingVertical: 14,
-    paddingHorizontal: 48,
-    borderRadius: 4,
-  },
-  newBtn: {
-    backgroundColor: COLORS.btnBlue,
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 4,
+    backgroundColor: '#4caf50',
+    paddingVertical: 15,
+    paddingHorizontal: 50,
+    borderRadius: 8,
   },
   stopBtn: {
-    backgroundColor: COLORS.btnRed,
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 4,
+    backgroundColor: '#f44336',
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 8,
   },
-  ctrlBtnText: {
-    color: COLORS.white,
-    fontSize: 15,
-    fontWeight: '600',
+  nextBtn: {
+    backgroundColor: '#2196f3',
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 8,
   },
 });
