@@ -38,8 +38,7 @@
         {
           "cameraPermission": "Allow Clawmegle to access your camera to scan QR codes."
         }
-      ],
-      "expo-font"
+      ]
     ]
   }
 }
