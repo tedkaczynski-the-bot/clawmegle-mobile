@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -11,9 +11,15 @@ import {
   Linking,
   Image,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { useFonts, Poppins_700Bold, Poppins_600SemiBold, Poppins_400Regular } from '@expo-google-fonts/poppins';
+import * as SplashScreen from 'expo-splash-screen';
+
+// Prevent splash from auto-hiding
+SplashScreen.preventAutoHideAsync();
 
 const API_BASE = 'https://www.clawmegle.xyz';
 const { width } = Dimensions.get('window');
@@ -57,6 +63,18 @@ export default function App() {
   const [permission, requestPermission] = useCameraPermissions();
   const scrollRef = useRef(null);
   const pollRef = useRef(null);
+
+  const [fontsLoaded] = useFonts({
+    Poppins_700Bold,
+    Poppins_600SemiBold,
+    Poppins_400Regular,
+  });
+
+  const onLayoutRootView = useCallback(async () => {
+    if (fontsLoaded) {
+      await SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded]);
 
   useEffect(() => {
     loadApiKey();
@@ -186,10 +204,11 @@ export default function App() {
   };
 
   // ============ LOADING SCREEN ============
-  if (screen === SCREENS.LOADING) {
+  if (!fontsLoaded || screen === SCREENS.LOADING) {
     return (
-      <View style={styles.splashContainer}>
+      <View style={styles.splashContainer} onLayout={onLayoutRootView}>
         <StatusBar barStyle="light-content" backgroundColor="#6fa8dc" />
+        <Image source={require('./assets/logo.png')} style={styles.splashLogoImg} />
         <Text style={styles.splashLogo}>clawmegle</Text>
         <Text style={styles.splashTagline}>Talk to strangers!</Text>
       </View>
@@ -383,19 +402,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  splashLogoImg: {
+    width: 100,
+    height: 100,
+    marginBottom: 16,
+  },
   splashLogo: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    fontStyle: 'italic',
+    fontSize: 42,
+    fontFamily: 'Poppins_700Bold',
     color: '#fff',
     textShadowColor: 'rgba(0,0,0,0.2)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
   },
   splashTagline: {
-    fontSize: 18,
+    fontSize: 16,
+    fontFamily: 'Poppins_400Regular',
     color: '#fff',
-    marginTop: 8,
+    marginTop: 4,
     opacity: 0.9,
   },
 
@@ -414,13 +438,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   headerLogo: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    fontStyle: 'italic',
+    fontSize: 26,
+    fontFamily: 'Poppins_700Bold',
     color: '#fff',
   },
   headerTagline: {
-    fontSize: 14,
+    fontSize: 13,
+    fontFamily: 'Poppins_400Regular',
     color: '#fff',
     opacity: 0.9,
   },
@@ -434,12 +458,13 @@ const styles = StyleSheet.create({
   // ====== SCAN SCREEN ======
   titleText: {
     fontSize: 24,
-    fontWeight: '600',
+    fontFamily: 'Poppins_600SemiBold',
     color: '#333',
     marginBottom: 8,
   },
   descText: {
-    fontSize: 15,
+    fontSize: 14,
+    fontFamily: 'Poppins_400Regular',
     color: '#666',
     textAlign: 'center',
     marginBottom: 24,
@@ -496,8 +521,8 @@ const styles = StyleSheet.create({
   },
   btnPrimaryText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 15,
+    fontFamily: 'Poppins_600SemiBold',
   },
   btnGhost: {
     paddingVertical: 10,
@@ -526,13 +551,14 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   gateTitle: {
-    fontSize: 24,
-    fontWeight: '600',
+    fontSize: 22,
+    fontFamily: 'Poppins_600SemiBold',
     color: '#333',
     marginBottom: 12,
   },
   gateDesc: {
     fontSize: 14,
+    fontFamily: 'Poppins_400Regular',
     color: '#666',
     textAlign: 'center',
     lineHeight: 21,
@@ -576,9 +602,8 @@ const styles = StyleSheet.create({
     marginTop: -4,
   },
   chatHeaderLogo: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    fontStyle: 'italic',
+    fontSize: 22,
+    fontFamily: 'Poppins_700Bold',
     color: '#fff',
   },
   liveBtn: {
@@ -719,7 +744,7 @@ const styles = StyleSheet.create({
   },
   ctrlBtnText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 15,
+    fontFamily: 'Poppins_600SemiBold',
   },
 });

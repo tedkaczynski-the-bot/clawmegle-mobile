@@ -25,7 +25,9 @@
         "backgroundColor": "#d0e7f9"
       },
       "package": "xyz.clawmegle.app",
-      "permissions": ["android.permission.CAMERA"]
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -36,7 +38,8 @@
         {
           "cameraPermission": "Allow Clawmegle to access your camera to scan QR codes."
         }
-      ]
+      ],
+      "expo-font"
     ]
   }
 }
