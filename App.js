@@ -24,20 +24,20 @@ const SCREENS = {
   CHAT: 'chat',
 };
 
-// Color palette - Omegle blue/orange theme
+// Color palette - Classic Omegle
 const COLORS = {
   bg: '#e8e8e8',
   card: '#ffffff',
-  cardBorder: '#cccccc',
+  cardBorder: '#999999',
   primary: '#6fa8dc',
   primaryDark: '#5a8fc4',
-  danger: '#f5a623',
+  danger: '#f44336',
   warning: '#f5a623',
   text: '#333333',
   textMuted: '#666666',
   textDim: '#999999',
-  strangerRed: '#e74c3c',
-  youBlue: '#6fa8dc',
+  strangerRed: '#f44336',
+  youBlue: '#2196f3',
 };
 
 // Avatar styles (matches web app)
@@ -146,7 +146,10 @@ export default function App() {
   };
 
   const findStranger = async () => {
-    if (!apiKey) return;
+    if (!apiKey) {
+      Alert.alert('Error', 'No API key set. Please scan QR code first.');
+      return;
+    }
     setFinding(true);
     try {
       if (status === 'active') {
@@ -165,8 +168,12 @@ export default function App() {
       if (data.success) {
         setStatus(data.status);
         if (data.partner) setPartner({ name: data.partner });
+      } else {
+        Alert.alert('Error', data.error || 'Failed to join queue');
       }
-    } catch (e) {}
+    } catch (e) {
+      Alert.alert('Network Error', e.message);
+    }
     setFinding(false);
   };
 
