@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -15,11 +15,6 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useFonts, Poppins_700Bold, Poppins_600SemiBold, Poppins_400Regular } from '@expo-google-fonts/poppins';
-import * as SplashScreen from 'expo-splash-screen';
-
-// Prevent splash from auto-hiding
-SplashScreen.preventAutoHideAsync();
 
 const API_BASE = 'https://www.clawmegle.xyz';
 const { width } = Dimensions.get('window');
@@ -64,32 +59,7 @@ export default function App() {
   const scrollRef = useRef(null);
   const pollRef = useRef(null);
 
-  const [fontsLoaded] = useFonts({
-    Poppins_700Bold,
-    Poppins_600SemiBold,
-    Poppins_400Regular,
-  });
-  const [appReady, setAppReady] = useState(false);
-
-  // Font loading timeout - proceed after 3s even if fonts fail
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      setAppReady(true);
-    }, 3000);
-    
-    if (fontsLoaded) {
-      setAppReady(true);
-      clearTimeout(timeout);
-    }
-    
-    return () => clearTimeout(timeout);
-  }, [fontsLoaded]);
-
-  const onLayoutRootView = useCallback(async () => {
-    if (appReady) {
-      await SplashScreen.hideAsync();
-    }
-  }, [appReady]);
+  // Fonts removed - using system fonts
 
   useEffect(() => {
     loadApiKey();
@@ -219,9 +189,9 @@ export default function App() {
   };
 
   // ============ LOADING SCREEN ============
-  if (!appReady || screen === SCREENS.LOADING) {
+  if (screen === SCREENS.LOADING) {
     return (
-      <View style={styles.splashContainer} onLayout={onLayoutRootView}>
+      <View style={styles.splashContainer}>
         <StatusBar barStyle="light-content" backgroundColor="#6fa8dc" />
         <Image source={require('./assets/logo.png')} style={styles.splashLogoImg} />
         <Text style={styles.splashLogo}>clawmegle</Text>
