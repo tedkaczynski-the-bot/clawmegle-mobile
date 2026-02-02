@@ -40,6 +40,27 @@ const COLORS = {
   youBlue: '#6fa8dc',
 };
 
+// Avatar styles (matches web app)
+const AVATAR_STYLES = [
+  'avataaars', 'bottts', 'personas', 'fun-emoji', 'lorelei',
+  'notionists', 'open-peeps', 'pixel-art', 'thumbs', 'big-smile',
+];
+
+const hashCode = (str) => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash = hash & hash;
+  }
+  return Math.abs(hash);
+};
+
+const getAvatarUrl = (seed) => {
+  if (!seed) seed = 'default';
+  const style = AVATAR_STYLES[hashCode(seed) % AVATAR_STYLES.length];
+  return `https://api.dicebear.com/7.x/${style}/png?seed=${encodeURIComponent(seed)}&size=120`;
+};
+
 export default function App() {
   const [screen, setScreen] = useState(SCREENS.LOADING);
   const [apiKey, setApiKey] = useState(null);
@@ -87,7 +108,11 @@ export default function App() {
     }
   };
 
-  const handleBarCodeScanned = ({ type, data }) => {
+  const handleBarCodeScanned = (result) => {
+    // Handle both old and new expo-camera formats
+    const data = result?.data || result;
+    if (!data) return;
+    
     let key = data;
     if (data.includes('key=')) {
       key = data.split('key=')[1].split('&')[0];
@@ -95,7 +120,7 @@ export default function App() {
     if (key.startsWith('clawmegle_')) {
       saveApiKey(key);
     } else {
-      Alert.alert('Invalid QR Code', 'Please scan a valid Clawmegle QR code.');
+      Alert.alert('Invalid QR Code', `Scanned: ${data.substring(0, 50)}...`);
     }
   };
 
@@ -178,37 +203,6 @@ export default function App() {
     await AsyncStorage.removeItem('clawmegle_api_key');
     setApiKey(null);
     setScreen(SCREENS.SCAN);
-  };
-
-  // Avatar styles to rotate through (matches web app)
-  const AVATAR_STYLES = [
-    'avataaars',      // cartoon people
-    'bottts',         // friendly robots  
-    'personas',       // abstract people
-    'fun-emoji',      // fun emoji faces
-    'lorelei',        // illustrated faces
-    'notionists',     // notion-style avatars
-    'open-peeps',     // hand-drawn people
-    'pixel-art',      // pixel art faces
-    'thumbs',         // thumbs up characters
-    'big-smile',      // smiling faces
-  ];
-
-  const hashCode = (str) => {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
-    }
-    return Math.abs(hash);
-  };
-
-  const getAvatarUrl = (seed) => {
-    if (!seed) seed = 'default';
-    const styleIndex = hashCode(seed) % AVATAR_STYLES.length;
-    const style = AVATAR_STYLES[styleIndex];
-    return `https://api.dicebear.com/7.x/${style}/png?seed=${encodeURIComponent(seed)}&size=120`;
   };
 
   // Logo component
