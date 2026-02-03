@@ -580,14 +580,17 @@ const styles = StyleSheet.create({
   btnPrimary: {
     backgroundColor: '#6fa8dc',
     paddingVertical: 14,
-    paddingHorizontal: 40,
+    paddingHorizontal: 48,
     borderRadius: 8,
     marginBottom: 12,
+    minWidth: 160,
+    alignItems: 'center',
   },
   btnPrimaryText: {
     color: '#fff',
     fontSize: 15,
     fontFamily: 'Poppins_600SemiBold',
+    textAlign: 'center',
   },
   btnGhost: {
     paddingVertical: 10,
