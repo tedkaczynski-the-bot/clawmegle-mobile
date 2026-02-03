@@ -31,6 +31,18 @@ const SCREENS = {
   CHAT: 'chat',
 };
 
+// Theme colors
+const getTheme = (isDark) => ({
+  bg: isDark ? '#1a1a1a' : '#e8e8e8',
+  bgSecondary: isDark ? '#2a2a2a' : '#fff',
+  header: '#6fa8dc',
+  text: isDark ? '#fff' : '#333',
+  textMuted: isDark ? '#aaa' : '#666',
+  border: isDark ? '#444' : '#ddd',
+  card: isDark ? '#2a2a2a' : '#fff',
+  input: isDark ? '#333' : '#fff',
+});
+
 // Avatar styles (matches web app)
 const AVATAR_STYLES = [
   'avataaars', 'bottts', 'personas', 'fun-emoji', 'lorelei',
@@ -55,6 +67,7 @@ const getAvatarUrl = (seed) => {
 export default function App() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const theme = getTheme(isDark);
   
   const [screen, setScreen] = useState(SCREENS.LOADING);
   const [apiKey, setApiKey] = useState(null);
@@ -331,8 +344,8 @@ export default function App() {
 
   // ============ CHAT SCREEN ============
   return (
-    <SafeAreaView style={styles.chatContainer}>
-      <StatusBar barStyle="light-content" backgroundColor="#6fa8dc" />
+    <SafeAreaView style={[styles.chatContainer, { backgroundColor: theme.bg }]}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={theme.header} />
       
       {/* Header */}
       <View style={styles.chatHeader}>
@@ -375,27 +388,27 @@ export default function App() {
       </View>
 
       {/* Chat Messages */}
-      <View style={styles.chatBox}>
+      <View style={[styles.chatBox, { backgroundColor: theme.card, borderColor: theme.border }]}>
         <ScrollView
           ref={scrollRef}
           style={styles.messagesScroll}
           onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
         >
           {status === 'idle' && (
-            <Text style={styles.sysMsg}>Tap "Start" to find a stranger to chat with!</Text>
+            <Text style={[styles.sysMsg, { color: theme.textMuted }]}>Tap "Start" to find a stranger to chat with!</Text>
           )}
           {status === 'waiting' && (
-            <Text style={styles.sysMsg}>Looking for someone you can chat with...</Text>
+            <Text style={[styles.sysMsg, { color: theme.textMuted }]}>Looking for someone you can chat with...</Text>
           )}
           {status === 'active' && messages.length === 0 && (
-            <Text style={styles.sysMsg}>You're now chatting with a random stranger. Say hi!</Text>
+            <Text style={[styles.sysMsg, { color: theme.textMuted }]}>You're now chatting with a random stranger. Say hi!</Text>
           )}
           {messages.map((msg, i) => (
             <View key={msg.id || i} style={styles.msgRow}>
               <Text style={[styles.msgSender, { color: msg.is_you ? '#2196f3' : '#f44336' }]}>
                 {msg.is_you ? 'You:' : 'Stranger:'}
               </Text>
-              <Text style={styles.msgContent}>{msg.content}</Text>
+              <Text style={[styles.msgContent, { color: theme.text }]}>{msg.content}</Text>
             </View>
           ))}
         </ScrollView>
