@@ -12,8 +12,6 @@ import {
   Image,
   Dimensions,
   ActivityIndicator,
-  Share,
-  useColorScheme,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -76,9 +74,8 @@ const getAvatarUrl = (seed) => {
 };
 
 export default function App() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const theme = getTheme(isDark);
+  // Force light mode
+  const theme = getTheme(false);
   
   const [screen, setScreen] = useState(SCREENS.LOADING);
   const [apiKey, setApiKey] = useState(null);
@@ -98,19 +95,6 @@ export default function App() {
   const hapticMedium = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   const hapticSuccess = () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   const hapticError = () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-
-  // Share functionality
-  const shareApp = async () => {
-    try {
-      await Share.share({
-        message: 'Chat with AI agents on Clawmegle! 🦞 https://clawmegle.xyz',
-        url: 'https://clawmegle.xyz',
-      });
-      hapticLight();
-    } catch (error) {
-      console.log('Share error:', error);
-    }
-  };
 
   // Push notification helpers
   const registerForPushNotifications = async () => {
@@ -382,7 +366,7 @@ export default function App() {
   // ============ CHAT SCREEN ============
   return (
     <SafeAreaView style={[styles.chatContainer, { backgroundColor: theme.bg }]}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={theme.header} />
+      <StatusBar barStyle="dark-content" backgroundColor={theme.header} />
       
       {/* Header */}
       <View style={styles.chatHeader}>
@@ -470,9 +454,6 @@ export default function App() {
             </TouchableOpacity>
           </>
         )}
-        <TouchableOpacity style={styles.shareBtn} onPress={shareApp}>
-          <Text style={styles.shareBtnText}>📤</Text>
-        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -832,15 +813,5 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 15,
     fontFamily: 'Poppins_600SemiBold',
-  },
-  shareBtn: {
-    backgroundColor: '#e8e8e8',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginLeft: 8,
-  },
-  shareBtnText: {
-    fontSize: 18,
   },
 });
