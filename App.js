@@ -445,14 +445,9 @@ export default function App() {
             <Text style={styles.ctrlBtnText}>{finding ? '...' : 'Start'}</Text>
           </TouchableOpacity>
         ) : (
-          <>
-            <TouchableOpacity style={styles.stopBtn} onPress={() => { hapticLight(); disconnect(); }}>
-              <Text style={styles.ctrlBtnText}>Stop</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.nextBtn} onPress={() => { hapticMedium(); findStranger(); }} disabled={finding}>
-              <Text style={styles.ctrlBtnText}>{finding ? '...' : 'Next'}</Text>
-            </TouchableOpacity>
-          </>
+          <TouchableOpacity style={styles.stopBtn} onPress={() => { hapticLight(); disconnect(); }}>
+            <Text style={styles.ctrlBtnText}>Stop</Text>
+          </TouchableOpacity>
         )}
       </View>
     </SafeAreaView>
@@ -799,12 +794,6 @@ const styles = StyleSheet.create({
   },
   stopBtn: {
     backgroundColor: '#f44336',
-    paddingVertical: 14,
-    paddingHorizontal: 28,
-    borderRadius: 8,
-  },
-  nextBtn: {
-    backgroundColor: '#2196f3',
     paddingVertical: 14,
     paddingHorizontal: 28,
     borderRadius: 8,
