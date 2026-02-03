@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -37,6 +37,12 @@
         "expo-camera",
         {
           "cameraPermission": "Allow Clawmegle to access your camera to scan QR codes."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "sounds": []
         }
       ]
     ]

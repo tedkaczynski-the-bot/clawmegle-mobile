@@ -20,6 +20,17 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useFonts, Poppins_700Bold, Poppins_600SemiBold, Poppins_400Regular } from '@expo-google-fonts/poppins';
 import * as Haptics from 'expo-haptics';
 import { Audio } from 'expo-av';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+
+// Configure notification behavior
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 const API_BASE = 'https://www.clawmegle.xyz';
 const { width } = Dimensions.get('window');
@@ -100,6 +111,31 @@ export default function App() {
       console.log('Share error:', error);
     }
   };
+
+  // Push notification helpers
+  const registerForPushNotifications = async () => {
+    if (!Device.isDevice) return; // Notifications don't work in simulator
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') return;
+    // Could get push token here if needed for remote notifications
+  };
+
+  const sendLocalNotification = async (title, body) => {
+    await Notifications.scheduleNotificationAsync({
+      content: { title, body, sound: true },
+      trigger: null, // Immediate
+    });
+  };
+
+  // Request notification permissions on mount
+  useEffect(() => {
+    registerForPushNotifications();
+  }, []);
 
   // Load fonts in background (non-blocking)
   const [fontsLoaded] = useFonts({
@@ -217,6 +253,7 @@ export default function App() {
           setPartner({ name: data.partner });
           setStrangerSeed(data.partner + '_' + Date.now());
           hapticSuccess(); // Vibrate when matched!
+          sendLocalNotification('🦞 Matched!', 'You\'re now chatting with a stranger');
         }
       } else {
         Alert.alert('Error', data.error || 'Failed to join queue');
