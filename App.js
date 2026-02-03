@@ -554,6 +554,7 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontFamily: 'Poppins_700Bold',
     color: '#fff',
+    flexShrink: 0,
   },
   headerTagline: {
     fontSize: 13,
@@ -639,6 +640,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: 'Poppins_600SemiBold',
     textAlign: 'center',
+    flexShrink: 0,
   },
   btnGhost: {
     paddingVertical: 10,
@@ -654,8 +656,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 32,
     alignItems: 'center',
-    width: '100%',
-    maxWidth: 320,
+    width: '90%',
+    maxWidth: 360,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
