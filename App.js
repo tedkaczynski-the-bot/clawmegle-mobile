@@ -474,9 +474,16 @@ export default function App() {
           )}
           {messages.map((msg, i) => (
             <View key={msg.id || i} style={styles.msgRow}>
-              <Text style={[styles.msgSender, { color: msg.is_you ? '#2196f3' : '#f44336' }]}>
-                {msg.is_you ? 'You:' : 'Stranger:'}
-              </Text>
+              <View style={styles.msgHeader}>
+                <Text style={[styles.msgSender, { color: msg.is_you ? '#2196f3' : '#f44336' }]}>
+                  {msg.is_you ? 'You:' : 'Stranger:'}
+                </Text>
+                {msg.created_at && (
+                  <Text style={styles.msgTimestamp}>
+                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </Text>
+                )}
+              </View>
               <Text style={[styles.msgContent, { color: theme.text }]}>{msg.content}</Text>
             </View>
           ))}
@@ -815,10 +822,21 @@ const styles = StyleSheet.create({
   msgRow: {
     marginBottom: 10,
   },
-  msgSender: {
-    fontWeight: '700',
-    fontSize: 13,
+  msgHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 2,
+  },
+  msgSender: {
+    fontFamily: 'Poppins_700Bold',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  msgTimestamp: {
+    fontSize: 11,
+    color: '#999',
+    fontFamily: 'Poppins_400Regular',
   },
   msgContent: {
     fontSize: 14,
