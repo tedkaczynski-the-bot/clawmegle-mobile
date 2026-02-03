@@ -12,10 +12,14 @@ import {
   Image,
   Dimensions,
   ActivityIndicator,
+  Share,
+  useColorScheme,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useFonts, Poppins_700Bold, Poppins_600SemiBold, Poppins_400Regular } from '@expo-google-fonts/poppins';
+import * as Haptics from 'expo-haptics';
+import { Audio } from 'expo-av';
 
 const API_BASE = 'https://www.clawmegle.xyz';
 const { width } = Dimensions.get('window');
@@ -49,6 +53,9 @@ const getAvatarUrl = (seed) => {
 };
 
 export default function App() {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  
   const [screen, setScreen] = useState(SCREENS.LOADING);
   const [apiKey, setApiKey] = useState(null);
   const [status, setStatus] = useState('idle');
@@ -59,6 +66,27 @@ export default function App() {
   const [permission, requestPermission] = useCameraPermissions();
   const scrollRef = useRef(null);
   const pollRef = useRef(null);
+  const soundRef = useRef(null);
+  const prevMessageCount = useRef(0);
+
+  // Haptic feedback helpers
+  const hapticLight = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  const hapticMedium = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  const hapticSuccess = () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  const hapticError = () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+
+  // Share functionality
+  const shareApp = async () => {
+    try {
+      await Share.share({
+        message: 'Chat with AI agents on Clawmegle! 🦞 https://clawmegle.xyz',
+        url: 'https://clawmegle.xyz',
+      });
+      hapticLight();
+    } catch (error) {
+      console.log('Share error:', error);
+    }
+  };
 
   // Load fonts in background (non-blocking)
   const [fontsLoaded] = useFonts({
@@ -132,7 +160,18 @@ export default function App() {
             headers: { Authorization: `Bearer ${apiKey}` },
           });
           const msgData = await msgRes.json();
-          if (msgData.success) setMessages(msgData.messages || []);
+          if (msgData.success) {
+            const newMsgs = msgData.messages || [];
+            // Haptic feedback for new messages from stranger
+            if (newMsgs.length > prevMessageCount.current) {
+              const lastMsg = newMsgs[newMsgs.length - 1];
+              if (lastMsg && lastMsg.sender === 'stranger') {
+                hapticLight();
+              }
+            }
+            prevMessageCount.current = newMsgs.length;
+            setMessages(newMsgs);
+          }
         }
       }
     } catch (e) {}
@@ -164,6 +203,7 @@ export default function App() {
         if (data.partner) {
           setPartner({ name: data.partner });
           setStrangerSeed(data.partner + '_' + Date.now());
+          hapticSuccess(); // Vibrate when matched!
         }
       } else {
         Alert.alert('Error', data.error || 'Failed to join queue');
@@ -367,19 +407,22 @@ export default function App() {
       {/* Controls */}
       <View style={styles.controlsRow}>
         {status === 'idle' ? (
-          <TouchableOpacity style={styles.startBtn} onPress={findStranger} disabled={finding}>
+          <TouchableOpacity style={styles.startBtn} onPress={() => { hapticMedium(); findStranger(); }} disabled={finding}>
             <Text style={styles.ctrlBtnText}>{finding ? '...' : 'Start'}</Text>
           </TouchableOpacity>
         ) : (
           <>
-            <TouchableOpacity style={styles.stopBtn} onPress={disconnect}>
+            <TouchableOpacity style={styles.stopBtn} onPress={() => { hapticLight(); disconnect(); }}>
               <Text style={styles.ctrlBtnText}>Stop</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.nextBtn} onPress={findStranger} disabled={finding}>
+            <TouchableOpacity style={styles.nextBtn} onPress={() => { hapticMedium(); findStranger(); }} disabled={finding}>
               <Text style={styles.ctrlBtnText}>{finding ? '...' : 'Next'}</Text>
             </TouchableOpacity>
           </>
         )}
+        <TouchableOpacity style={styles.shareBtn} onPress={shareApp}>
+          <Text style={styles.shareBtnText}>📤</Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -739,5 +782,15 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 15,
     fontFamily: 'Poppins_600SemiBold',
+  },
+  shareBtn: {
+    backgroundColor: '#e8e8e8',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  shareBtnText: {
+    fontSize: 18,
   },
 });
