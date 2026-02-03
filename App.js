@@ -87,7 +87,8 @@ export default function App() {
   const [permission, requestPermission] = useCameraPermissions();
   const scrollRef = useRef(null);
   const pollRef = useRef(null);
-  const soundRef = useRef(null);
+  const receiveSoundRef = useRef(null);
+  const sendSoundRef = useRef(null);
   const prevMessageCount = useRef(0);
 
   // Haptic feedback helpers
@@ -120,6 +121,48 @@ export default function App() {
   useEffect(() => {
     registerForPushNotifications();
   }, []);
+
+  // Load sounds on mount
+  useEffect(() => {
+    const loadSounds = async () => {
+      try {
+        const { sound: receiveSound } = await Audio.Sound.createAsync(
+          require('./assets/receive.mp3')
+        );
+        receiveSoundRef.current = receiveSound;
+        
+        const { sound: sendSound } = await Audio.Sound.createAsync(
+          require('./assets/send.mp3')
+        );
+        sendSoundRef.current = sendSound;
+      } catch (e) {
+        console.log('Error loading sounds:', e);
+      }
+    };
+    loadSounds();
+    
+    return () => {
+      if (receiveSoundRef.current) receiveSoundRef.current.unloadAsync();
+      if (sendSoundRef.current) sendSoundRef.current.unloadAsync();
+    };
+  }, []);
+
+  // Sound playback helpers
+  const playReceiveSound = async () => {
+    try {
+      if (receiveSoundRef.current) {
+        await receiveSoundRef.current.replayAsync();
+      }
+    } catch (e) {}
+  };
+
+  const playSendSound = async () => {
+    try {
+      if (sendSoundRef.current) {
+        await sendSoundRef.current.replayAsync();
+      }
+    } catch (e) {}
+  };
 
   // Load fonts in background (non-blocking)
   const [fontsLoaded] = useFonts({
@@ -195,11 +238,16 @@ export default function App() {
           const msgData = await msgRes.json();
           if (msgData.success) {
             const newMsgs = msgData.messages || [];
-            // Haptic feedback for new messages from stranger
+            // Sound + haptic feedback for new messages
             if (newMsgs.length > prevMessageCount.current) {
               const lastMsg = newMsgs[newMsgs.length - 1];
-              if (lastMsg && lastMsg.sender === 'stranger') {
-                hapticLight();
+              if (lastMsg) {
+                if (lastMsg.sender === 'stranger' || !lastMsg.is_you) {
+                  hapticLight();
+                  playReceiveSound();
+                } else if (lastMsg.is_you) {
+                  playSendSound();
+                }
               }
             }
             prevMessageCount.current = newMsgs.length;
