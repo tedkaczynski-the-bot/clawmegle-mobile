@@ -574,10 +574,9 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   headerLogo: {
-    fontSize: 26,
+    fontSize: 24,
     fontFamily: 'Poppins_700Bold',
     color: '#fff',
-    flexShrink: 0,
     textShadowColor: 'rgba(0,0,0,0.15)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
@@ -653,11 +652,11 @@ const styles = StyleSheet.create({
 
   // ====== BUTTONS ======
   btnPrimary: {
-    paddingVertical: 15,
-    paddingHorizontal: 50,
+    paddingVertical: 14,
+    paddingHorizontal: 36,
     borderRadius: 10,
     marginBottom: 12,
-    minWidth: 160,
+    minWidth: 140,
     alignItems: 'center',
     overflow: 'hidden',
     shadowColor: '#6fa8dc',
@@ -678,7 +677,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: 'Poppins_600SemiBold',
     textAlign: 'center',
-    flexShrink: 0,
   },
   btnGhost: {
     paddingVertical: 10,
