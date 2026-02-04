@@ -12,7 +12,9 @@ import {
   Image,
   Dimensions,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useFonts, Poppins_700Bold, Poppins_600SemiBold, Poppins_400Regular } from '@expo-google-fonts/poppins';
@@ -334,7 +336,7 @@ export default function App() {
       return (
         <View style={styles.screenContainer}>
           <StatusBar barStyle="dark-content" backgroundColor="#e8e8e8" />
-          <View style={styles.headerBar}>
+          <View style={styles.headerBar}><LinearGradient colors={['#7bb8e8', '#6fa8dc']} style={styles.headerBarGradient} />
             <Text style={styles.headerLogo}>clawmegle</Text>
             <Text style={styles.headerTagline}>Talk to strangers!</Text>
           </View>
@@ -342,6 +344,7 @@ export default function App() {
             <Text style={styles.titleText}>Camera Access</Text>
             <Text style={styles.descText}>We need camera access to scan your agent's QR code</Text>
             <TouchableOpacity style={styles.btnPrimary} onPress={requestPermission}>
+              <LinearGradient colors={['#7bb8e8', '#6fa8dc']} style={styles.btnPrimaryGradient} />
               <Text style={styles.btnPrimaryText}>Allow Camera</Text>
             </TouchableOpacity>
           </View>
@@ -352,7 +355,7 @@ export default function App() {
     return (
       <View style={styles.screenContainer}>
         <StatusBar barStyle="dark-content" backgroundColor="#e8e8e8" />
-        <View style={styles.headerBar}>
+        <View style={styles.headerBar}><LinearGradient colors={['#7bb8e8', '#6fa8dc']} style={styles.headerBarGradient} />
           <Text style={styles.headerLogo}>clawmegle</Text>
           <Text style={styles.headerTagline}>Talk to strangers!</Text>
         </View>
@@ -383,7 +386,7 @@ export default function App() {
     return (
       <View style={styles.screenContainer}>
         <StatusBar barStyle="dark-content" backgroundColor="#e8e8e8" />
-        <View style={styles.headerBar}>
+        <View style={styles.headerBar}><LinearGradient colors={['#7bb8e8', '#6fa8dc']} style={styles.headerBarGradient} />
           <Text style={styles.headerLogo}>clawmegle</Text>
           <Text style={styles.headerTagline}>Talk to strangers!</Text>
         </View>
@@ -395,6 +398,7 @@ export default function App() {
               Your agent is ready to meet strangers. Tap below to enter the chat and start matching with other AI agents.
             </Text>
             <TouchableOpacity style={styles.btnPrimary} onPress={() => setScreen(SCREENS.CHAT)}>
+              <LinearGradient colors={['#7bb8e8', '#6fa8dc']} style={styles.btnPrimaryGradient} />
               <Text style={styles.btnPrimaryText}>Enter Chat</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.btnGhost} onPress={logout}>
@@ -418,6 +422,7 @@ export default function App() {
       
       {/* Header */}
       <View style={styles.chatHeader}>
+        <LinearGradient colors={['#7bb8e8', '#6fa8dc']} style={styles.chatHeaderGradient} />
         <TouchableOpacity onPress={() => setScreen(SCREENS.GATE)} style={styles.backBtn}>
           <Text style={styles.backBtnText}>‹</Text>
         </TouchableOpacity>
@@ -431,6 +436,7 @@ export default function App() {
       <View style={styles.videoRow}>
         <View style={styles.videoPanel}>
           <View style={styles.videoFrame}>
+            <LinearGradient colors={['#0a0a0a', '#1a1a1a']} style={styles.videoFrameGradient} start={{x: 0, y: 0}} end={{x: 1, y: 1}} />
             {status === 'active' && partner ? (
               <Image source={{ uri: getAvatarUrl(strangerSeed || partner.name || 'stranger') }} style={styles.avatar} />
             ) : status === 'waiting' ? (
@@ -447,6 +453,7 @@ export default function App() {
         
         <View style={styles.videoPanel}>
           <View style={styles.videoFrame}>
+            <LinearGradient colors={['#0a0a0a', '#1a1a1a']} style={styles.videoFrameGradient} start={{x: 0, y: 0}} end={{x: 1, y: 1}} />
             <Image source={{ uri: getAvatarUrl(apiKey || 'you') }} style={styles.avatar} />
           </View>
           <View style={styles.videoLabelRow}>
@@ -497,14 +504,17 @@ export default function App() {
       <View style={styles.controlsRow}>
         {status === 'idle' ? (
           <TouchableOpacity style={styles.startBtn} onPress={() => { hapticMedium(); findStranger(); }} disabled={finding}>
+            <LinearGradient colors={['#52c95a', '#4caf50']} style={styles.startBtnGradient} />
             <Text style={styles.ctrlBtnText}>{finding ? '...' : 'Start'}</Text>
           </TouchableOpacity>
         ) : (
           <>
             <TouchableOpacity style={styles.stopBtn} onPress={() => { hapticLight(); disconnect(); }}>
+              <LinearGradient colors={['#f55a5a', '#f44336']} style={styles.stopBtnGradient} />
               <Text style={styles.ctrlBtnText}>Stop</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.nextBtn} onPress={() => { hapticMedium(); findStranger(); }} disabled={finding}>
+              <LinearGradient colors={['#4ba3f5', '#2196f3']} style={styles.nextBtnGradient} />
               <Text style={styles.ctrlBtnText}>{finding ? '...' : 'Next'}</Text>
             </TouchableOpacity>
           </>
@@ -549,25 +559,34 @@ const styles = StyleSheet.create({
     backgroundColor: '#e8e8e8',
   },
   headerBar: {
-    backgroundColor: '#6fa8dc',
     paddingTop: 50,
-    paddingBottom: 15,
+    paddingBottom: 16,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  headerBarGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   headerLogo: {
     fontSize: 26,
     fontFamily: 'Poppins_700Bold',
     color: '#fff',
     flexShrink: 0,
+    textShadowColor: 'rgba(0,0,0,0.15)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   headerTagline: {
     fontSize: 13,
     fontFamily: 'Poppins_400Regular',
-    color: '#fff',
-    opacity: 0.9,
+    color: 'rgba(255,255,255,0.95)',
+    fontWeight: '500',
   },
   contentCenter: {
     flex: 1,
@@ -634,13 +653,25 @@ const styles = StyleSheet.create({
 
   // ====== BUTTONS ======
   btnPrimary: {
-    backgroundColor: '#6fa8dc',
-    paddingVertical: 14,
-    paddingHorizontal: 48,
-    borderRadius: 8,
+    paddingVertical: 15,
+    paddingHorizontal: 50,
+    borderRadius: 10,
     marginBottom: 12,
     minWidth: 160,
     alignItems: 'center',
+    overflow: 'hidden',
+    shadowColor: '#6fa8dc',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  btnPrimaryGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   btnPrimaryText: {
     color: '#fff',
@@ -660,16 +691,16 @@ const styles = StyleSheet.create({
   // ====== GATE SCREEN ======
   gateCard: {
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 32,
+    borderRadius: 20,
+    padding: 34,
     alignItems: 'center',
     width: '90%',
     maxWidth: 360,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 8,
   },
   gateLogo: {
     width: 80,
@@ -709,12 +740,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#e8e8e8',
   },
   chatHeader: {
-    backgroundColor: '#6fa8dc',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 12,
+  },
+  chatHeaderGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   backBtn: {
     width: 36,
@@ -748,22 +785,31 @@ const styles = StyleSheet.create({
   // ====== VIDEO PANELS ======
   videoRow: {
     flexDirection: 'row',
-    padding: 8,
-    gap: 8,
+    padding: 10,
+    gap: 10,
   },
   videoPanel: {
     flex: 1,
     backgroundColor: '#fff',
-    borderRadius: 8,
+    borderRadius: 12,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#ccc',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
   },
   videoFrame: {
     aspectRatio: 4/3,
-    backgroundColor: '#1a1a1a',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  videoFrameGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   avatar: {
     width: 72,
@@ -801,12 +847,15 @@ const styles = StyleSheet.create({
   chatBox: {
     flex: 1,
     backgroundColor: '#fff',
-    marginHorizontal: 8,
-    marginBottom: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ccc',
+    marginHorizontal: 10,
+    marginBottom: 10,
+    borderRadius: 12,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
   messagesScroll: {
     flex: 1,
@@ -859,26 +908,62 @@ const styles = StyleSheet.create({
   controlsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    padding: 12,
-    gap: 12,
+    padding: 14,
+    gap: 14,
   },
   startBtn: {
-    backgroundColor: '#4caf50',
-    paddingVertical: 14,
-    paddingHorizontal: 56,
-    borderRadius: 8,
+    paddingVertical: 15,
+    paddingHorizontal: 58,
+    borderRadius: 10,
+    overflow: 'hidden',
+    shadowColor: '#4caf50',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  startBtnGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   stopBtn: {
-    backgroundColor: '#f44336',
-    paddingVertical: 14,
-    paddingHorizontal: 28,
-    borderRadius: 8,
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 10,
+    overflow: 'hidden',
+    shadowColor: '#f44336',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  stopBtnGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   nextBtn: {
-    backgroundColor: '#2196f3',
-    paddingVertical: 14,
-    paddingHorizontal: 28,
-    borderRadius: 8,
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 10,
+    overflow: 'hidden',
+    shadowColor: '#2196f3',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  nextBtnGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   ctrlBtnText: {
     color: '#fff',
