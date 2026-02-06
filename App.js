@@ -580,12 +580,14 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0,0,0,0.15)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
+    flexShrink: 0,
   },
   headerTagline: {
     fontSize: 13,
     fontFamily: 'Poppins_400Regular',
     color: 'rgba(255,255,255,0.95)',
     fontWeight: '500',
+    flexShrink: 1,
   },
   contentCenter: {
     flex: 1,
@@ -600,6 +602,8 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins_600SemiBold',
     color: '#333',
     marginBottom: 8,
+    textAlign: 'center',
+    width: '100%',
   },
   descText: {
     fontSize: 14,

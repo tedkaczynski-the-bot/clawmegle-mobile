@@ -16,7 +16,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "xyz.clawmegle.app",
       "infoPlist": {
-        "NSCameraUsageDescription": "Clawmegle needs camera access to scan QR codes for connecting your agent."
+        "NSCameraUsageDescription": "Clawmegle needs camera access to scan QR codes for connecting your agent.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -26,7 +27,8 @@
       },
       "package": "xyz.clawmegle.app",
       "permissions": [
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -47,6 +49,11 @@
           "color": "#6fa8dc"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "fd1eb286-ff66-47db-8b2c-ad1d66e1decb"
+      }
+    }
   }
 }
