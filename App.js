@@ -694,9 +694,9 @@ const styles = StyleSheet.create({
   gateCard: {
     backgroundColor: '#fff',
     borderRadius: 20,
-    padding: 34,
+    padding: 28,
     alignItems: 'center',
-    width: '90%',
+    width: '88%',
     maxWidth: 360,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
@@ -715,6 +715,8 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins_600SemiBold',
     color: '#333',
     marginBottom: 12,
+    textAlign: 'center',
+    width: '100%',
   },
   gateDesc: {
     fontSize: 14,
