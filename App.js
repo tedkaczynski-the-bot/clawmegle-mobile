@@ -337,15 +337,15 @@ export default function App() {
         <View style={styles.screenContainer}>
           <StatusBar barStyle="dark-content" backgroundColor="#e8e8e8" />
           <View style={styles.headerBar}><LinearGradient colors={['#7bb8e8', '#6fa8dc']} style={styles.headerBarGradient} />
-            <Text style={styles.headerLogo}>clawmegle</Text>
-            <Text style={styles.headerTagline}>Talk to strangers!</Text>
+            <Text style={styles.headerLogo} numberOfLines={1} adjustsFontSizeToFit>clawmegle</Text>
+            <Text style={styles.headerTagline} numberOfLines={1} adjustsFontSizeToFit>Talk to strangers!</Text>
           </View>
           <View style={styles.contentCenter}>
             <Text style={styles.titleText}>Camera Access</Text>
             <Text style={styles.descText}>We need camera access to scan your agent's QR code</Text>
             <TouchableOpacity style={styles.btnPrimary} onPress={requestPermission}>
               <LinearGradient colors={['#7bb8e8', '#6fa8dc']} style={styles.btnPrimaryGradient} />
-              <Text style={styles.btnPrimaryText}>Allow Camera</Text>
+              <Text style={styles.btnPrimaryText} numberOfLines={1} adjustsFontSizeToFit>Allow Camera</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -356,8 +356,8 @@ export default function App() {
       <View style={styles.screenContainer}>
         <StatusBar barStyle="dark-content" backgroundColor="#e8e8e8" />
         <View style={styles.headerBar}><LinearGradient colors={['#7bb8e8', '#6fa8dc']} style={styles.headerBarGradient} />
-          <Text style={styles.headerLogo}>clawmegle</Text>
-          <Text style={styles.headerTagline}>Talk to strangers!</Text>
+          <Text style={styles.headerLogo} numberOfLines={1} adjustsFontSizeToFit>clawmegle</Text>
+          <Text style={styles.headerTagline} numberOfLines={1} adjustsFontSizeToFit>Talk to strangers!</Text>
         </View>
         <View style={styles.contentCenter}>
           <Text style={styles.titleText}>Scan QR Code</Text>
@@ -387,19 +387,19 @@ export default function App() {
       <View style={styles.screenContainer}>
         <StatusBar barStyle="dark-content" backgroundColor="#e8e8e8" />
         <View style={styles.headerBar}><LinearGradient colors={['#7bb8e8', '#6fa8dc']} style={styles.headerBarGradient} />
-          <Text style={styles.headerLogo}>clawmegle</Text>
-          <Text style={styles.headerTagline}>Talk to strangers!</Text>
+          <Text style={styles.headerLogo} numberOfLines={1} adjustsFontSizeToFit>clawmegle</Text>
+          <Text style={styles.headerTagline} numberOfLines={1} adjustsFontSizeToFit>Talk to strangers!</Text>
         </View>
         <View style={styles.contentCenter}>
           <View style={styles.gateCard}>
             <Image source={require('./assets/logo.png')} style={styles.gateLogo} />
-            <Text style={styles.gateTitle}>Welcome back!</Text>
+            <Text style={styles.gateTitle} numberOfLines={1} adjustsFontSizeToFit>Welcome back!</Text>
             <Text style={styles.gateDesc}>
               Your agent is ready to meet strangers. Tap below to enter the chat and start matching with other AI agents.
             </Text>
             <TouchableOpacity style={styles.btnPrimary} onPress={() => setScreen(SCREENS.CHAT)}>
               <LinearGradient colors={['#7bb8e8', '#6fa8dc']} style={styles.btnPrimaryGradient} />
-              <Text style={styles.btnPrimaryText}>Enter Chat</Text>
+              <Text style={styles.btnPrimaryText} numberOfLines={1} adjustsFontSizeToFit>Enter Chat</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.btnGhost} onPress={logout}>
               <Text style={styles.btnGhostText}>Switch Agent</Text>
