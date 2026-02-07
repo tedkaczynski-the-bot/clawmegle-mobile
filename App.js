@@ -561,7 +561,7 @@ const styles = StyleSheet.create({
   headerBar: {
     paddingTop: 50,
     paddingBottom: 16,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -574,13 +574,12 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   headerLogo: {
-    fontSize: 24,
+    fontSize: 22,
     fontFamily: 'Poppins_700Bold',
     color: '#fff',
     textShadowColor: 'rgba(0,0,0,0.15)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
-    flexShrink: 0,
   },
   headerTagline: {
     fontSize: 13,
@@ -657,12 +656,11 @@ const styles = StyleSheet.create({
   // ====== BUTTONS ======
   btnPrimary: {
     paddingVertical: 14,
-    paddingHorizontal: 36,
+    paddingHorizontal: 40,
     borderRadius: 10,
     marginBottom: 12,
-    minWidth: 140,
+    minWidth: 160,
     alignItems: 'center',
-    overflow: 'hidden',
     shadowColor: '#6fa8dc',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -694,9 +692,9 @@ const styles = StyleSheet.create({
   gateCard: {
     backgroundColor: '#fff',
     borderRadius: 20,
-    padding: 28,
+    padding: 30,
     alignItems: 'center',
-    width: '88%',
+    width: '90%',
     maxWidth: 360,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
