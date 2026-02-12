@@ -9,13 +9,9 @@
     "web": "expo start --web"
   },
   "dependencies": {
-    "@coinbase/wallet-mobile-sdk": "^1.1.2",
     "@expo-google-fonts/poppins": "^0.4.1",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/hooks": "^100.1.0",
-    "@tanstack/react-query": "^5.90.21",
-    "@walletconnect/modal-react-native": "^1.1.0",
-    "@walletconnect/react-native-compat": "^2.23.5",
     "expo": "~54.0.33",
     "expo-av": "~16.0.8",
     "expo-camera": "~17.0.10",
@@ -30,9 +26,7 @@
     "expo-status-bar": "~3.0.9",
     "expo-web-browser": "^15.0.10",
     "react": "19.1.0",
-    "react-native": "0.81.5",
-    "viem": "^2.45.3",
-    "wagmi": "^3.4.3"
+    "react-native": "0.81.5"
   },
   "private": true,
   "devDependencies": {
