@@ -318,23 +318,37 @@ export default function App() {
 
     if (!paymentRequired) return;
 
-    // In production, this would:
-    // 1. Sign a USDC transfer tx using the wallet
-    // 2. Submit to Base network
-    // 3. Get tx hash and include in X-Payment header
-    // 4. Retry the request
+    // Payment details from x402 response
+    const payTo = '0x81FD234f63Dd559d0EDA56d17BB1Bb78f236DB37';
+    const usdcAddress = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+    const amount = '0.05';
 
-    Alert.alert(
-      'Payment',
-      `Query costs $0.05 USDC on Base.\n\nPayment flow:\n1. Sign USDC transfer in your wallet\n2. Submit to Base network\n3. Retry query with payment proof\n\nThis feature requires full wallet integration.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Open Coinbase Wallet',
-          onPress: () => Linking.openURL('https://go.cb-w.com/'),
-        },
-      ]
-    );
+    // Coinbase Wallet deep link for token transfer on Base
+    // Format: https://go.cb-w.com/send?address=<to>&amount=<amount>&asset=<token>&chain=base
+    const cbWalletUrl = `https://go.cb-w.com/send?address=${payTo}&amount=${amount}&asset=${usdcAddress}&chain=8453`;
+    
+    // Alternative: try cbwallet:// scheme first (works if CB Wallet installed)
+    const cbSchemeUrl = `cbwallet://send?address=${payTo}&amount=${amount}&asset=${usdcAddress}&chain=8453`;
+
+    try {
+      const canOpenScheme = await Linking.canOpenURL(cbSchemeUrl);
+      if (canOpenScheme) {
+        await Linking.openURL(cbSchemeUrl);
+      } else {
+        // Fallback to web URL (opens CB Wallet or prompts install)
+        await Linking.openURL(cbWalletUrl);
+      }
+      
+      // Note: After payment, user needs to come back and we'd verify the tx
+      // For full automation, we'd need to poll for the tx or use webhooks
+      Alert.alert(
+        'Complete Payment',
+        'After confirming the transaction in your wallet, tap Search again to get your results.',
+        [{ text: 'OK' }]
+      );
+    } catch (e) {
+      Alert.alert('Error', 'Could not open wallet app');
+    }
   };
 
   // ============ CHAT FUNCTIONS ============
