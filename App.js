@@ -233,16 +233,30 @@ export default function App() {
     const data = result?.data || result;
     if (!data) return;
     
-    // Handle ethereum: URI format or plain address
+    // Extract address from various QR formats
     let address = data;
-    if (data.startsWith('ethereum:')) {
-      address = data.replace('ethereum:', '').split('@')[0].split('?')[0];
+    
+    // Handle ethereum: URI format
+    if (data.toLowerCase().startsWith('ethereum:')) {
+      address = data.substring(9).split('@')[0].split('?')[0].split('/')[0];
+    }
+    // Handle wc: WalletConnect URIs - ignore these
+    else if (data.toLowerCase().startsWith('wc:')) {
+      Alert.alert('Wrong QR Type', 'Please scan your wallet\'s "Receive" QR code that shows your address, not a WalletConnect QR.');
+      return;
+    }
+    // Handle coinbase: URIs
+    else if (data.toLowerCase().includes('coinbase')) {
+      const match = data.match(/0x[a-fA-F0-9]{40}/);
+      if (match) address = match[0];
     }
     
-    if (address.startsWith('0x') && address.length === 42) {
-      saveWalletAddress(address);
+    // Clean up address - extract just the 0x... part
+    const addressMatch = address.match(/0x[a-fA-F0-9]{40}/);
+    if (addressMatch) {
+      saveWalletAddress(addressMatch[0]);
     } else {
-      Alert.alert('Invalid QR', 'Please scan a valid wallet address QR code');
+      Alert.alert('Invalid QR', 'Could not find a wallet address. Please scan your wallet\'s "Receive" QR code.');
     }
   };
 
@@ -703,21 +717,9 @@ export default function App() {
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>Connect Wallet</Text>
-              <Text style={styles.modalSubtitle}>Link your Base wallet to pay for queries</Text>
+              <Text style={styles.modalSubtitle}>Enter your Base wallet address to pay for queries</Text>
               
-              {/* QR Scanner */}
-              <View style={styles.walletScannerBox}>
-                <CameraView
-                  style={styles.walletScanner}
-                  barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-                  onBarcodeScanned={handleWalletQRScan}
-                />
-                <Text style={styles.walletScannerLabel}>Scan wallet QR code</Text>
-              </View>
-
-              <Text style={styles.modalOr}>— or —</Text>
-
-              {/* Manual Entry */}
+              {/* Manual Entry - Primary */}
               <TextInput
                 style={styles.walletInput}
                 placeholder="Paste address (0x...)"
@@ -728,12 +730,16 @@ export default function App() {
                 autoCorrect={false}
               />
               <TouchableOpacity 
-                style={[styles.btnPrimary, { marginTop: 12, marginBottom: 8 }]} 
+                style={[styles.btnPrimary, { marginTop: 16, marginBottom: 8 }]} 
                 onPress={() => saveWalletAddress(walletInputValue)}
               >
                 <LinearGradient colors={['#7bb8e8', '#6fa8dc']} style={styles.btnPrimaryGradient} />
-                <Text style={styles.btnPrimaryText}>Save Address</Text>
+                <Text style={styles.btnPrimaryText}>Connect</Text>
               </TouchableOpacity>
+
+              <Text style={styles.walletHint}>
+                Copy your address from Coinbase Wallet, MetaMask, or any Base-compatible wallet
+              </Text>
 
               <TouchableOpacity style={styles.btnGhost} onPress={() => setShowWalletModal(false)}>
                 <Text style={styles.btnGhostText}>Cancel</Text>
@@ -1524,32 +1530,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'center',
   },
-  modalOr: {
-    fontSize: 13,
-    color: '#999',
-    marginVertical: 16,
-  },
-  walletScannerBox: {
-    width: '100%',
-    aspectRatio: 1,
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: '#000',
-    marginBottom: 8,
-  },
-  walletScanner: {
-    flex: 1,
-  },
-  walletScannerLabel: {
-    position: 'absolute',
-    bottom: 10,
-    left: 0,
-    right: 0,
-    textAlign: 'center',
-    color: '#fff',
+  walletHint: {
     fontSize: 12,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    paddingVertical: 6,
+    color: '#888',
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 12,
+    lineHeight: 18,
   },
   walletInput: {
     width: '100%',
