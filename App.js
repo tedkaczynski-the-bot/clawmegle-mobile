@@ -110,6 +110,10 @@ export default function App() {
   const [collectiveError, setCollectiveError] = useState(null);
   const [paymentRequired, setPaymentRequired] = useState(null);
 
+  // Wallet modal state
+  const [showWalletModal, setShowWalletModal] = useState(false);
+  const [walletInputValue, setWalletInputValue] = useState('');
+
   // Haptic feedback helpers
   const hapticLight = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   const hapticMedium = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -208,61 +212,38 @@ export default function App() {
     } catch (e) {}
   };
 
-  const connectWallet = async () => {
-    setWalletConnecting(true);
-    try {
-      // Open Coinbase Wallet for connection
-      // This uses the Coinbase Wallet mobile deep link
-      const callbackUrl = encodeURIComponent('clawmegle://wallet-callback');
-      const cbWalletUrl = `https://go.cb-w.com/dapp?cb_url=${callbackUrl}`;
-      
-      const supported = await Linking.canOpenURL(cbWalletUrl);
-      if (supported) {
-        await Linking.openURL(cbWalletUrl);
-        // Note: In production, you'd handle the callback with the address
-        // For now, prompt user to enter their address manually after connecting
-        Alert.alert(
-          'Wallet Connection',
-          'After connecting in Coinbase Wallet, please enter your wallet address:',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Enter Address',
-              onPress: () => promptWalletAddress(),
-            },
-          ]
-        );
-      } else {
-        // Fallback: prompt for manual address entry
-        promptWalletAddress();
-      }
-    } catch (e) {
-      Alert.alert('Error', 'Failed to connect wallet');
-    }
-    setWalletConnecting(false);
+  const connectWallet = () => {
+    setShowWalletModal(true);
+    setWalletInputValue('');
   };
 
-  const promptWalletAddress = () => {
-    Alert.prompt(
-      'Enter Wallet Address',
-      'Enter your Base wallet address (0x...)',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Save',
-          onPress: async (address) => {
-            if (address && address.startsWith('0x') && address.length === 42) {
-              await AsyncStorage.setItem('wallet_address', address);
-              setWalletAddress(address);
-              hapticSuccess();
-            } else {
-              Alert.alert('Invalid Address', 'Please enter a valid Ethereum address');
-            }
-          },
-        },
-      ],
-      'plain-text'
-    );
+  const saveWalletAddress = async (address) => {
+    if (address && address.startsWith('0x') && address.length === 42) {
+      await AsyncStorage.setItem('wallet_address', address);
+      setWalletAddress(address);
+      setShowWalletModal(false);
+      setWalletInputValue('');
+      hapticSuccess();
+    } else {
+      Alert.alert('Invalid Address', 'Please enter a valid Ethereum address (0x...)');
+    }
+  };
+
+  const handleWalletQRScan = (result) => {
+    const data = result?.data || result;
+    if (!data) return;
+    
+    // Handle ethereum: URI format or plain address
+    let address = data;
+    if (data.startsWith('ethereum:')) {
+      address = data.replace('ethereum:', '').split('@')[0].split('?')[0];
+    }
+    
+    if (address.startsWith('0x') && address.length === 42) {
+      saveWalletAddress(address);
+    } else {
+      Alert.alert('Invalid QR', 'Please scan a valid wallet address QR code');
+    }
   };
 
   const disconnectWallet = async () => {
@@ -553,15 +534,11 @@ export default function App() {
             <Image source={require('./assets/logo.png')} style={styles.gateLogo} />
             <Text style={styles.gateTitle} numberOfLines={1} adjustsFontSizeToFit>Welcome back!</Text>
             <Text style={styles.gateDesc}>
-              Your agent is ready to meet strangers. Choose your experience:
+              Your agent is ready to meet strangers. Tap below to enter and start matching with other AI agents.
             </Text>
             <TouchableOpacity style={styles.btnPrimary} onPress={() => { setActiveTab('chat'); setScreen(SCREENS.CHAT); }}>
               <LinearGradient colors={['#7bb8e8', '#6fa8dc']} style={styles.btnPrimaryGradient} />
-              <Text style={styles.btnPrimaryText} numberOfLines={1} adjustsFontSizeToFit>💬 Chat</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.btnPrimary, { marginTop: 0 }]} onPress={() => { setActiveTab('collective'); setScreen(SCREENS.COLLECTIVE); }}>
-              <LinearGradient colors={['#7bb8e8', '#6fa8dc']} style={styles.btnPrimaryGradient} />
-              <Text style={styles.btnPrimaryText} numberOfLines={1} adjustsFontSizeToFit>🧠 Collective</Text>
+              <Text style={styles.btnPrimaryText} numberOfLines={1} adjustsFontSizeToFit>Enter Chat</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.btnGhost} onPress={logout}>
               <Text style={styles.btnGhostText}>Switch Agent</Text>
@@ -720,6 +697,50 @@ export default function App() {
             <Text style={[styles.tabText, activeTab === 'collective' && styles.tabTextActive]}>🧠 Collective</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Wallet Connection Modal */}
+        {showWalletModal && (
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Connect Wallet</Text>
+              <Text style={styles.modalSubtitle}>Link your Base wallet to pay for queries</Text>
+              
+              {/* QR Scanner */}
+              <View style={styles.walletScannerBox}>
+                <CameraView
+                  style={styles.walletScanner}
+                  barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+                  onBarcodeScanned={handleWalletQRScan}
+                />
+                <Text style={styles.walletScannerLabel}>Scan wallet QR code</Text>
+              </View>
+
+              <Text style={styles.modalOr}>— or —</Text>
+
+              {/* Manual Entry */}
+              <TextInput
+                style={styles.walletInput}
+                placeholder="Paste address (0x...)"
+                placeholderTextColor="#999"
+                value={walletInputValue}
+                onChangeText={setWalletInputValue}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TouchableOpacity 
+                style={[styles.btnPrimary, { marginTop: 12, marginBottom: 8 }]} 
+                onPress={() => saveWalletAddress(walletInputValue)}
+              >
+                <LinearGradient colors={['#7bb8e8', '#6fa8dc']} style={styles.btnPrimaryGradient} />
+                <Text style={styles.btnPrimaryText}>Save Address</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.btnGhost} onPress={() => setShowWalletModal(false)}>
+                <Text style={styles.btnGhostText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </SafeAreaView>
     );
   }
@@ -1469,5 +1490,73 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 14,
     color: '#c00',
+  },
+
+  // ====== WALLET MODAL ======
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontFamily: 'Poppins_700Bold',
+    color: '#333',
+    marginBottom: 4,
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  modalOr: {
+    fontSize: 13,
+    color: '#999',
+    marginVertical: 16,
+  },
+  walletScannerBox: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#000',
+    marginBottom: 8,
+  },
+  walletScanner: {
+    flex: 1,
+  },
+  walletScannerLabel: {
+    position: 'absolute',
+    bottom: 10,
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    color: '#fff',
+    fontSize: 12,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingVertical: 6,
+  },
+  walletInput: {
+    width: '100%',
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    padding: 14,
+    fontSize: 14,
+    color: '#333',
   },
 });
