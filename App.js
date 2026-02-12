@@ -25,6 +25,7 @@ import * as Haptics from 'expo-haptics';
 import { Audio } from 'expo-av';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import * as WebBrowser from 'expo-web-browser';
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
@@ -130,6 +131,7 @@ export default function App() {
   // Wallet modal state
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [walletInputValue, setWalletInputValue] = useState('');
+  const [pendingPayment, setPendingPayment] = useState(false);
 
   // Haptic feedback helpers
   const hapticLight = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -159,7 +161,33 @@ export default function App() {
   useEffect(() => {
     registerForPushNotifications();
     loadWallet();
-  }, []);
+
+    // Handle deep link callbacks from wallet
+    const handleUrl = (event) => {
+      const url = event.url;
+      // Check if this is a payment callback
+      if (url.includes('clawmegle://') && pendingPayment) {
+        // Payment completed, retry search
+        setPendingPayment(false);
+        hapticSuccess();
+        // Auto-retry the search after payment
+        if (collectiveQuery) {
+          searchCollectiveWithPayment();
+        }
+      }
+    };
+
+    const subscription = Linking.addEventListener('url', handleUrl);
+
+    // Check if app was opened via deep link
+    Linking.getInitialURL().then((url) => {
+      if (url && url.includes('clawmegle://') && pendingPayment) {
+        handleUrl({ url });
+      }
+    });
+
+    return () => subscription?.remove();
+  }, [pendingPayment, collectiveQuery]);
 
   // Load sounds on mount
   useEffect(() => {
@@ -340,32 +368,56 @@ export default function App() {
     const usdcAddress = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
     const amount = '0.05';
 
-    // Coinbase Wallet deep link for token transfer on Base
-    // Format: https://go.cb-w.com/send?address=<to>&amount=<amount>&asset=<token>&chain=base
-    const cbWalletUrl = `https://go.cb-w.com/send?address=${payTo}&amount=${amount}&asset=${usdcAddress}&chain=8453`;
+    // Coinbase Wallet deep link with callback
+    const callbackUrl = encodeURIComponent('clawmegle://payment-complete');
+    const cbWalletUrl = `https://go.cb-w.com/send?address=${payTo}&amount=${amount}&asset=${usdcAddress}&chain=8453&callback=${callbackUrl}`;
     
-    // Alternative: try cbwallet:// scheme first (works if CB Wallet installed)
-    const cbSchemeUrl = `cbwallet://send?address=${payTo}&amount=${amount}&asset=${usdcAddress}&chain=8453`;
+    setPendingPayment(true);
 
     try {
-      const canOpenScheme = await Linking.canOpenURL(cbSchemeUrl);
-      if (canOpenScheme) {
-        await Linking.openURL(cbSchemeUrl);
-      } else {
-        // Fallback to web URL (opens CB Wallet or prompts install)
-        await Linking.openURL(cbWalletUrl);
-      }
-      
-      // Note: After payment, user needs to come back and we'd verify the tx
-      // For full automation, we'd need to poll for the tx or use webhooks
-      Alert.alert(
-        'Complete Payment',
-        'After confirming the transaction in your wallet, tap Search again to get your results.',
-        [{ text: 'OK' }]
-      );
+      await Linking.openURL(cbWalletUrl);
     } catch (e) {
-      Alert.alert('Error', 'Could not open wallet app');
+      setPendingPayment(false);
+      Alert.alert('Error', 'Could not open wallet app. Make sure Coinbase Wallet is installed.');
     }
+  };
+
+  // Search with payment - called after wallet callback
+  const searchCollectiveWithPayment = async () => {
+    if (!collectiveQuery.trim()) return;
+    
+    setCollectiveLoading(true);
+    setCollectiveError(null);
+    setPaymentRequired(null);
+
+    try {
+      // For now, retry the search - in full x402 flow we'd include payment proof
+      // The facilitator handles payment verification
+      const res = await fetch(COLLECTIVE_API, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          // In production: include X-Payment header with signed tx
+        },
+        body: JSON.stringify({ query: collectiveQuery, limit: 10, synthesize: true }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setCollectiveResults(data);
+        hapticSuccess();
+      } else if (res.status === 402) {
+        // Still needs payment - payment may not have completed
+        Alert.alert('Payment Pending', 'Transaction may still be processing. Please wait a moment and try again.');
+      } else {
+        const err = await res.text();
+        setCollectiveError(err || 'Search failed');
+      }
+    } catch (e) {
+      setCollectiveError(e.message);
+    }
+
+    setCollectiveLoading(false);
   };
 
   // ============ CHAT FUNCTIONS ============
