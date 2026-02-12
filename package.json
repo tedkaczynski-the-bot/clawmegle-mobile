@@ -9,6 +9,7 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@coinbase/wallet-mobile-sdk": "^1.1.2",
     "@expo-google-fonts/poppins": "^0.4.1",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/hooks": "^100.1.0",
@@ -24,7 +25,11 @@
     "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",
     "react": "19.1.0",
-    "react-native": "0.81.5"
+    "react-native": "0.81.5",
+    "viem": "^2.45.3"
   },
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "qrcode": "^1.5.4"
+  }
 }

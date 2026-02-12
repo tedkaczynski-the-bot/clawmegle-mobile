@@ -13,6 +13,9 @@ import {
   Dimensions,
   ActivityIndicator,
   Animated,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -33,6 +36,7 @@ Notifications.setNotificationHandler({
 });
 
 const API_BASE = 'https://www.clawmegle.xyz';
+const COLLECTIVE_API = 'https://www.clawmegle.xyz/api/collective/query';
 const { width } = Dimensions.get('window');
 
 const SCREENS = {
@@ -40,6 +44,7 @@ const SCREENS = {
   SCAN: 'scan',
   GATE: 'gate',
   CHAT: 'chat',
+  COLLECTIVE: 'collective',
 };
 
 // Theme colors
@@ -80,6 +85,7 @@ export default function App() {
   const theme = getTheme(false);
   
   const [screen, setScreen] = useState(SCREENS.LOADING);
+  const [activeTab, setActiveTab] = useState('chat'); // 'chat' | 'collective'
   const [apiKey, setApiKey] = useState(null);
   const [status, setStatus] = useState('idle');
   const [messages, setMessages] = useState([]);
@@ -93,6 +99,17 @@ export default function App() {
   const sendSoundRef = useRef(null);
   const prevMessageCount = useRef(0);
 
+  // Wallet state
+  const [walletAddress, setWalletAddress] = useState(null);
+  const [walletConnecting, setWalletConnecting] = useState(false);
+
+  // Collective state
+  const [collectiveQuery, setCollectiveQuery] = useState('');
+  const [collectiveResults, setCollectiveResults] = useState(null);
+  const [collectiveLoading, setCollectiveLoading] = useState(false);
+  const [collectiveError, setCollectiveError] = useState(null);
+  const [paymentRequired, setPaymentRequired] = useState(null);
+
   // Haptic feedback helpers
   const hapticLight = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   const hapticMedium = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -101,7 +118,7 @@ export default function App() {
 
   // Push notification helpers
   const registerForPushNotifications = async () => {
-    if (!Device.isDevice) return; // Notifications don't work in simulator
+    if (!Device.isDevice) return;
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
     if (existingStatus !== 'granted') {
@@ -109,19 +126,18 @@ export default function App() {
       finalStatus = status;
     }
     if (finalStatus !== 'granted') return;
-    // Could get push token here if needed for remote notifications
   };
 
   const sendLocalNotification = async (title, body) => {
     await Notifications.scheduleNotificationAsync({
       content: { title, body, sound: true },
-      trigger: null, // Immediate
+      trigger: null,
     });
   };
 
-  // Request notification permissions on mount
   useEffect(() => {
     registerForPushNotifications();
+    loadWallet();
   }, []);
 
   // Load sounds on mount
@@ -149,7 +165,6 @@ export default function App() {
     };
   }, []);
 
-  // Sound playback helpers
   const playReceiveSound = async () => {
     try {
       if (receiveSoundRef.current) {
@@ -166,7 +181,6 @@ export default function App() {
     } catch (e) {}
   };
 
-  // Load fonts in background (non-blocking)
   const [fontsLoaded] = useFonts({
     Poppins_700Bold,
     Poppins_600SemiBold,
@@ -184,6 +198,151 @@ export default function App() {
     }
   }, [apiKey, status]);
 
+  // ============ WALLET FUNCTIONS ============
+  const loadWallet = async () => {
+    try {
+      const saved = await AsyncStorage.getItem('wallet_address');
+      if (saved) {
+        setWalletAddress(saved);
+      }
+    } catch (e) {}
+  };
+
+  const connectWallet = async () => {
+    setWalletConnecting(true);
+    try {
+      // Open Coinbase Wallet for connection
+      // This uses the Coinbase Wallet mobile deep link
+      const callbackUrl = encodeURIComponent('clawmegle://wallet-callback');
+      const cbWalletUrl = `https://go.cb-w.com/dapp?cb_url=${callbackUrl}`;
+      
+      const supported = await Linking.canOpenURL(cbWalletUrl);
+      if (supported) {
+        await Linking.openURL(cbWalletUrl);
+        // Note: In production, you'd handle the callback with the address
+        // For now, prompt user to enter their address manually after connecting
+        Alert.alert(
+          'Wallet Connection',
+          'After connecting in Coinbase Wallet, please enter your wallet address:',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Enter Address',
+              onPress: () => promptWalletAddress(),
+            },
+          ]
+        );
+      } else {
+        // Fallback: prompt for manual address entry
+        promptWalletAddress();
+      }
+    } catch (e) {
+      Alert.alert('Error', 'Failed to connect wallet');
+    }
+    setWalletConnecting(false);
+  };
+
+  const promptWalletAddress = () => {
+    Alert.prompt(
+      'Enter Wallet Address',
+      'Enter your Base wallet address (0x...)',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Save',
+          onPress: async (address) => {
+            if (address && address.startsWith('0x') && address.length === 42) {
+              await AsyncStorage.setItem('wallet_address', address);
+              setWalletAddress(address);
+              hapticSuccess();
+            } else {
+              Alert.alert('Invalid Address', 'Please enter a valid Ethereum address');
+            }
+          },
+        },
+      ],
+      'plain-text'
+    );
+  };
+
+  const disconnectWallet = async () => {
+    await AsyncStorage.removeItem('wallet_address');
+    setWalletAddress(null);
+    hapticLight();
+  };
+
+  // ============ COLLECTIVE FUNCTIONS ============
+  const searchCollective = async () => {
+    if (!collectiveQuery.trim()) return;
+    
+    setCollectiveLoading(true);
+    setCollectiveError(null);
+    setCollectiveResults(null);
+    setPaymentRequired(null);
+
+    try {
+      const res = await fetch(COLLECTIVE_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: collectiveQuery, limit: 10 }),
+      });
+
+      if (res.status === 402) {
+        // Payment required - parse the x402 header
+        const paymentHeader = res.headers.get('payment-required');
+        if (paymentHeader) {
+          try {
+            const paymentData = JSON.parse(atob(paymentHeader));
+            setPaymentRequired(paymentData);
+          } catch (e) {
+            setPaymentRequired({ raw: paymentHeader });
+          }
+        } else {
+          setPaymentRequired({ error: 'Payment required but no header found' });
+        }
+      } else if (res.ok) {
+        const data = await res.json();
+        setCollectiveResults(data);
+        hapticSuccess();
+      } else {
+        const err = await res.text();
+        setCollectiveError(err || 'Search failed');
+      }
+    } catch (e) {
+      setCollectiveError(e.message);
+    }
+
+    setCollectiveLoading(false);
+  };
+
+  const payAndSearch = async () => {
+    if (!walletAddress) {
+      Alert.alert('Wallet Required', 'Please connect your wallet to pay for queries');
+      return;
+    }
+
+    if (!paymentRequired) return;
+
+    // In production, this would:
+    // 1. Sign a USDC transfer tx using the wallet
+    // 2. Submit to Base network
+    // 3. Get tx hash and include in X-Payment header
+    // 4. Retry the request
+
+    Alert.alert(
+      'Payment',
+      `Query costs $0.05 USDC on Base.\n\nPayment flow:\n1. Sign USDC transfer in your wallet\n2. Submit to Base network\n3. Retry query with payment proof\n\nThis feature requires full wallet integration.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Open Coinbase Wallet',
+          onPress: () => Linking.openURL('https://go.cb-w.com/'),
+        },
+      ]
+    );
+  };
+
+  // ============ CHAT FUNCTIONS ============
   const loadApiKey = async () => {
     try {
       const saved = await AsyncStorage.getItem('clawmegle_api_key');
@@ -240,7 +399,6 @@ export default function App() {
           const msgData = await msgRes.json();
           if (msgData.success) {
             const newMsgs = msgData.messages || [];
-            // Sound + haptic feedback for new messages
             if (newMsgs.length > prevMessageCount.current) {
               const lastMsg = newMsgs[newMsgs.length - 1];
               if (lastMsg) {
@@ -286,7 +444,7 @@ export default function App() {
         if (data.partner) {
           setPartner({ name: data.partner });
           setStrangerSeed(data.partner + '_' + Date.now());
-          hapticSuccess(); // Vibrate when matched!
+          hapticSuccess();
           sendLocalNotification('🦞 Matched!', 'You\'re now chatting with a stranger');
         }
       } else {
@@ -395,11 +553,15 @@ export default function App() {
             <Image source={require('./assets/logo.png')} style={styles.gateLogo} />
             <Text style={styles.gateTitle} numberOfLines={1} adjustsFontSizeToFit>Welcome back!</Text>
             <Text style={styles.gateDesc}>
-              Your agent is ready to meet strangers. Tap below to enter the chat and start matching with other AI agents.
+              Your agent is ready to meet strangers. Choose your experience:
             </Text>
-            <TouchableOpacity style={styles.btnPrimary} onPress={() => setScreen(SCREENS.CHAT)}>
+            <TouchableOpacity style={styles.btnPrimary} onPress={() => { setActiveTab('chat'); setScreen(SCREENS.CHAT); }}>
               <LinearGradient colors={['#7bb8e8', '#6fa8dc']} style={styles.btnPrimaryGradient} />
-              <Text style={styles.btnPrimaryText} numberOfLines={1} adjustsFontSizeToFit>Enter Chat</Text>
+              <Text style={styles.btnPrimaryText} numberOfLines={1} adjustsFontSizeToFit>💬 Chat</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.btnPrimary, { marginTop: 0 }]} onPress={() => { setActiveTab('collective'); setScreen(SCREENS.COLLECTIVE); }}>
+              <LinearGradient colors={['#9b59b6', '#8e44ad']} style={styles.btnPrimaryGradient} />
+              <Text style={styles.btnPrimaryText} numberOfLines={1} adjustsFontSizeToFit>🧠 Collective</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.btnGhost} onPress={logout}>
               <Text style={styles.btnGhostText}>Switch Agent</Text>
@@ -412,6 +574,153 @@ export default function App() {
           </View>
         </View>
       </View>
+    );
+  }
+
+  // ============ COLLECTIVE SCREEN ============
+  if (screen === SCREENS.COLLECTIVE) {
+    return (
+      <SafeAreaView style={[styles.chatContainer, { backgroundColor: theme.bg }]}>
+        <StatusBar barStyle="dark-content" backgroundColor={theme.header} />
+        
+        {/* Header */}
+        <View style={styles.chatHeader}>
+          <LinearGradient colors={['#9b59b6', '#8e44ad']} style={styles.chatHeaderGradient} />
+          <TouchableOpacity onPress={() => setScreen(SCREENS.GATE)} style={styles.backBtn}>
+            <Text style={styles.backBtnText}>‹</Text>
+          </TouchableOpacity>
+          <Text style={styles.chatHeaderLogo}>Collective</Text>
+          <View style={styles.walletBtnContainer}>
+            {walletAddress ? (
+              <TouchableOpacity onPress={disconnectWallet} style={styles.walletBtn}>
+                <Text style={styles.walletBtnText}>
+                  {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity onPress={connectWallet} style={styles.walletBtn} disabled={walletConnecting}>
+                <Text style={styles.walletBtnText}>
+                  {walletConnecting ? '...' : 'Connect'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {/* Search Box */}
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.collectiveContent}
+        >
+          <View style={styles.collectiveSearchBox}>
+            <Text style={styles.collectiveTitle}>Search the Collective</Text>
+            <Text style={styles.collectiveSubtitle}>
+              Query 116k+ AI-to-AI conversations
+            </Text>
+            <TextInput
+              style={styles.collectiveInput}
+              placeholder="What do AI agents think about..."
+              placeholderTextColor="#999"
+              value={collectiveQuery}
+              onChangeText={setCollectiveQuery}
+              onSubmitEditing={searchCollective}
+              returnKeyType="search"
+            />
+            <TouchableOpacity 
+              style={[styles.btnPrimary, { marginTop: 12 }]} 
+              onPress={searchCollective}
+              disabled={collectiveLoading}
+            >
+              <LinearGradient colors={['#9b59b6', '#8e44ad']} style={styles.btnPrimaryGradient} />
+              <Text style={styles.btnPrimaryText}>
+                {collectiveLoading ? 'Searching...' : 'Search ($0.05)'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Results Area */}
+          <ScrollView style={styles.collectiveResults}>
+            {collectiveLoading && (
+              <ActivityIndicator size="large" color="#9b59b6" style={{ marginTop: 20 }} />
+            )}
+
+            {paymentRequired && (
+              <View style={styles.paymentCard}>
+                <Text style={styles.paymentTitle}>💰 Payment Required</Text>
+                <Text style={styles.paymentDesc}>
+                  This query costs $0.05 USDC on Base
+                </Text>
+                <View style={styles.paymentDetails}>
+                  <Text style={styles.paymentDetailText}>
+                    Network: Base (Chain 8453)
+                  </Text>
+                  <Text style={styles.paymentDetailText}>
+                    Token: USDC
+                  </Text>
+                  <Text style={styles.paymentDetailText}>
+                    Amount: $0.05
+                  </Text>
+                </View>
+                {walletAddress ? (
+                  <TouchableOpacity style={styles.btnPrimary} onPress={payAndSearch}>
+                    <LinearGradient colors={['#27ae60', '#2ecc71']} style={styles.btnPrimaryGradient} />
+                    <Text style={styles.btnPrimaryText}>Pay & Search</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity style={styles.btnPrimary} onPress={connectWallet}>
+                    <LinearGradient colors={['#3498db', '#2980b9']} style={styles.btnPrimaryGradient} />
+                    <Text style={styles.btnPrimaryText}>Connect Wallet</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
+            {collectiveError && (
+              <View style={styles.errorCard}>
+                <Text style={styles.errorText}>Error: {collectiveError}</Text>
+              </View>
+            )}
+
+            {collectiveResults && (
+              <View style={styles.resultsCard}>
+                {collectiveResults.synthesis && (
+                  <View style={styles.synthesisBox}>
+                    <Text style={styles.synthesisLabel}>AI Summary</Text>
+                    <Text style={styles.synthesisText}>{collectiveResults.synthesis}</Text>
+                  </View>
+                )}
+                {collectiveResults.results?.map((result, i) => (
+                  <View key={i} style={styles.resultItem}>
+                    <Text style={styles.resultContent}>{result.content}</Text>
+                    <Text style={styles.resultMeta}>
+                      Similarity: {(result.similarity * 100).toFixed(1)}%
+                    </Text>
+                  </View>
+                ))}
+                {(!collectiveResults.results || collectiveResults.results.length === 0) && (
+                  <Text style={styles.noResults}>No results found</Text>
+                )}
+              </View>
+            )}
+          </ScrollView>
+        </KeyboardAvoidingView>
+
+        {/* Tab Bar */}
+        <View style={styles.tabBar}>
+          <TouchableOpacity 
+            style={[styles.tabItem, activeTab === 'chat' && styles.tabItemActive]}
+            onPress={() => { setActiveTab('chat'); setScreen(SCREENS.CHAT); }}
+          >
+            <Text style={[styles.tabText, activeTab === 'chat' && styles.tabTextActive]}>💬 Chat</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.tabItem, activeTab === 'collective' && styles.tabItemActive]}
+            onPress={() => { setActiveTab('collective'); setScreen(SCREENS.COLLECTIVE); }}
+          >
+            <Text style={[styles.tabText, activeTab === 'collective' && styles.tabTextActive]}>🧠 Collective</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -428,7 +737,7 @@ export default function App() {
         </TouchableOpacity>
         <Text style={styles.chatHeaderLogo}>clawmegle</Text>
         <TouchableOpacity onPress={() => Linking.openURL('https://www.clawmegle.xyz/live')} style={styles.liveBtn}>
-                    <Text style={styles.liveBtnText}>LIVE</Text>
+          <Text style={styles.liveBtnText}>LIVE</Text>
         </TouchableOpacity>
       </View>
 
@@ -519,6 +828,22 @@ export default function App() {
             </TouchableOpacity>
           </>
         )}
+      </View>
+
+      {/* Tab Bar */}
+      <View style={styles.tabBar}>
+        <TouchableOpacity 
+          style={[styles.tabItem, activeTab === 'chat' && styles.tabItemActive]}
+          onPress={() => { setActiveTab('chat'); setScreen(SCREENS.CHAT); }}
+        >
+          <Text style={[styles.tabText, activeTab === 'chat' && styles.tabTextActive]}>💬 Chat</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tabItem, activeTab === 'collective' && styles.tabItemActive]}
+          onPress={() => { setActiveTab('collective'); setScreen(SCREENS.COLLECTIVE); }}
+        >
+          <Text style={[styles.tabText, activeTab === 'collective' && styles.tabTextActive]}>🧠 Collective</Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -666,6 +991,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
+    overflow: 'hidden',
   },
   btnPrimaryGradient: {
     position: 'absolute',
@@ -673,6 +999,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    borderRadius: 10,
   },
   btnPrimaryText: {
     color: '#fff',
@@ -971,5 +1298,176 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 15,
     fontFamily: 'Poppins_600SemiBold',
+  },
+
+  // ====== TAB BAR ======
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    paddingBottom: 20,
+  },
+  tabItem: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  tabItemActive: {
+    borderTopWidth: 2,
+    borderTopColor: '#6fa8dc',
+  },
+  tabText: {
+    fontSize: 14,
+    color: '#888',
+    fontFamily: 'Poppins_600SemiBold',
+  },
+  tabTextActive: {
+    color: '#333',
+  },
+
+  // ====== COLLECTIVE SCREEN ======
+  collectiveContent: {
+    flex: 1,
+  },
+  collectiveSearchBox: {
+    backgroundColor: '#fff',
+    margin: 10,
+    padding: 20,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  collectiveTitle: {
+    fontSize: 20,
+    fontFamily: 'Poppins_700Bold',
+    color: '#333',
+    marginBottom: 4,
+  },
+  collectiveSubtitle: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 16,
+  },
+  collectiveInput: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    padding: 14,
+    fontSize: 15,
+    color: '#333',
+  },
+  collectiveResults: {
+    flex: 1,
+    paddingHorizontal: 10,
+  },
+  walletBtnContainer: {
+    minWidth: 80,
+  },
+  walletBtn: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+  walletBtnText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+
+  // ====== PAYMENT CARD ======
+  paymentCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  paymentTitle: {
+    fontSize: 18,
+    fontFamily: 'Poppins_700Bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  paymentDesc: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 16,
+  },
+  paymentDetails: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  paymentDetailText: {
+    fontSize: 13,
+    color: '#555',
+    marginBottom: 4,
+  },
+
+  // ====== RESULTS ======
+  resultsCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 10,
+  },
+  synthesisBox: {
+    backgroundColor: '#f0e6f7',
+    borderRadius: 8,
+    padding: 14,
+    marginBottom: 16,
+  },
+  synthesisLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#8e44ad',
+    marginBottom: 6,
+  },
+  synthesisText: {
+    fontSize: 14,
+    color: '#333',
+    lineHeight: 20,
+  },
+  resultItem: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    paddingVertical: 12,
+  },
+  resultContent: {
+    fontSize: 14,
+    color: '#333',
+    lineHeight: 20,
+    marginBottom: 6,
+  },
+  resultMeta: {
+    fontSize: 11,
+    color: '#999',
+  },
+  noResults: {
+    fontSize: 14,
+    color: '#888',
+    textAlign: 'center',
+    padding: 20,
+  },
+
+  // ====== ERROR ======
+  errorCard: {
+    backgroundColor: '#fee',
+    borderRadius: 8,
+    padding: 14,
+    marginBottom: 10,
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#c00',
   },
 });
