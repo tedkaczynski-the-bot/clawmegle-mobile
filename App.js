@@ -560,7 +560,7 @@ export default function App() {
               <Text style={styles.btnPrimaryText} numberOfLines={1} adjustsFontSizeToFit>💬 Chat</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.btnPrimary, { marginTop: 0 }]} onPress={() => { setActiveTab('collective'); setScreen(SCREENS.COLLECTIVE); }}>
-              <LinearGradient colors={['#9b59b6', '#8e44ad']} style={styles.btnPrimaryGradient} />
+              <LinearGradient colors={['#7bb8e8', '#6fa8dc']} style={styles.btnPrimaryGradient} />
               <Text style={styles.btnPrimaryText} numberOfLines={1} adjustsFontSizeToFit>🧠 Collective</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.btnGhost} onPress={logout}>
@@ -585,7 +585,7 @@ export default function App() {
         
         {/* Header */}
         <View style={styles.chatHeader}>
-          <LinearGradient colors={['#9b59b6', '#8e44ad']} style={styles.chatHeaderGradient} />
+          <LinearGradient colors={['#7bb8e8', '#6fa8dc']} style={styles.chatHeaderGradient} />
           <TouchableOpacity onPress={() => setScreen(SCREENS.GATE)} style={styles.backBtn}>
             <Text style={styles.backBtnText}>‹</Text>
           </TouchableOpacity>
@@ -631,7 +631,7 @@ export default function App() {
               onPress={searchCollective}
               disabled={collectiveLoading}
             >
-              <LinearGradient colors={['#9b59b6', '#8e44ad']} style={styles.btnPrimaryGradient} />
+              <LinearGradient colors={['#7bb8e8', '#6fa8dc']} style={styles.btnPrimaryGradient} />
               <Text style={styles.btnPrimaryText}>
                 {collectiveLoading ? 'Searching...' : 'Search ($0.05)'}
               </Text>
@@ -1421,7 +1421,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   synthesisBox: {
-    backgroundColor: '#f0e6f7',
+    backgroundColor: '#e8f4fc',
     borderRadius: 8,
     padding: 14,
     marginBottom: 16,
@@ -1429,7 +1429,7 @@ const styles = StyleSheet.create({
   synthesisLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#8e44ad',
+    color: '#6fa8dc',
     marginBottom: 6,
   },
   synthesisText: {
