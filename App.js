@@ -159,24 +159,7 @@ export default function App() {
   useEffect(() => {
     registerForPushNotifications();
     loadWallet();
-    loadMyTwitter();
   }, []);
-
-  // Load user's Twitter handle from storage
-  const loadMyTwitter = async () => {
-    try {
-      const saved = await AsyncStorage.getItem('my_twitter_handle');
-      if (saved) setMyTwitter(saved);
-    } catch (e) {}
-  };
-
-  // Save user's Twitter handle
-  const saveMyTwitter = async (handle) => {
-    try {
-      await AsyncStorage.setItem('my_twitter_handle', handle);
-      setMyTwitter(handle);
-    } catch (e) {}
-  };
 
   // Load sounds on mount
   useEffect(() => {
@@ -436,6 +419,7 @@ export default function App() {
         setStatus(data.status);
         setPartner(data.partner || null);
         if (data.partner_twitter) setStrangerTwitter(data.partner_twitter);
+        if (data.my_twitter) setMyTwitter(data.my_twitter);
         if (data.status === 'active') {
           const msgRes = await fetch(`${API_BASE}/api/messages`, {
             headers: { Authorization: `Bearer ${apiKey}` },
@@ -607,25 +591,6 @@ export default function App() {
             </TouchableOpacity>
             <TouchableOpacity style={styles.btnGhost} onPress={logout}>
               <Text style={styles.btnGhostText}>Switch Agent</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.btnGhost} 
-              onPress={() => {
-                Alert.prompt(
-                  'Twitter Handle',
-                  'Enter your Twitter/X handle for profile picture',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Save', onPress: (handle) => handle && saveMyTwitter(handle.replace('@', '')) },
-                  ],
-                  'plain-text',
-                  myTwitter || ''
-                );
-              }}
-            >
-              <Text style={styles.btnGhostText}>
-                {myTwitter ? `@${myTwitter}` : 'Set Twitter Handle'}
-              </Text>
             </TouchableOpacity>
           </View>
           <View style={styles.warningBox}>
