@@ -2,11 +2,12 @@
   "expo": {
     "name": "Clawmegle",
     "slug": "clawmegle",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/logo-v4.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "scheme": "clawmegle",
     "splash": {
       "image": "./assets/logo-v4.png",
       "resizeMode": "contain",

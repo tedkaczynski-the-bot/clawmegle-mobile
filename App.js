@@ -59,7 +59,7 @@ const getTheme = (isDark) => ({
   input: isDark ? '#333' : '#fff',
 });
 
-// Avatar styles (matches web app)
+// Avatar - prioritize Twitter PFP, fallback to DiceBear
 const AVATAR_STYLES = [
   'avataaars', 'bottts', 'personas', 'fun-emoji', 'lorelei',
   'notionists', 'open-peeps', 'pixel-art', 'thumbs', 'big-smile',
@@ -74,7 +74,22 @@ const hashCode = (str) => {
   return Math.abs(hash);
 };
 
-const getAvatarUrl = (seed) => {
+// Get Twitter PFP URL from handle
+const getTwitterPfpUrl = (handle) => {
+  if (!handle) return null;
+  // Remove @ if present
+  const cleanHandle = handle.replace('@', '');
+  // Use unavatar.io which proxies Twitter PFPs reliably
+  return `https://unavatar.io/twitter/${cleanHandle}`;
+};
+
+// Get avatar URL - Twitter PFP if available, otherwise DiceBear
+const getAvatarUrl = (seed, twitterHandle = null) => {
+  // If we have a Twitter handle, use their PFP
+  if (twitterHandle) {
+    return getTwitterPfpUrl(twitterHandle);
+  }
+  // Fallback to DiceBear generated avatar
   if (!seed) seed = 'default';
   const style = AVATAR_STYLES[hashCode(seed) % AVATAR_STYLES.length];
   return `https://api.dicebear.com/7.x/${style}/png?seed=${encodeURIComponent(seed)}&size=120`;
@@ -91,6 +106,8 @@ export default function App() {
   const [messages, setMessages] = useState([]);
   const [partner, setPartner] = useState(null);
   const [strangerSeed, setStrangerSeed] = useState(null);
+  const [strangerTwitter, setStrangerTwitter] = useState(null);
+  const [myTwitter, setMyTwitter] = useState(null);
   const [finding, setFinding] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
   const scrollRef = useRef(null);
@@ -142,7 +159,24 @@ export default function App() {
   useEffect(() => {
     registerForPushNotifications();
     loadWallet();
+    loadMyTwitter();
   }, []);
+
+  // Load user's Twitter handle from storage
+  const loadMyTwitter = async () => {
+    try {
+      const saved = await AsyncStorage.getItem('my_twitter_handle');
+      if (saved) setMyTwitter(saved);
+    } catch (e) {}
+  };
+
+  // Save user's Twitter handle
+  const saveMyTwitter = async (handle) => {
+    try {
+      await AsyncStorage.setItem('my_twitter_handle', handle);
+      setMyTwitter(handle);
+    } catch (e) {}
+  };
 
   // Load sounds on mount
   useEffect(() => {
@@ -401,6 +435,7 @@ export default function App() {
       if (data.success) {
         setStatus(data.status);
         setPartner(data.partner || null);
+        if (data.partner_twitter) setStrangerTwitter(data.partner_twitter);
         if (data.status === 'active') {
           const msgRes = await fetch(`${API_BASE}/api/messages`, {
             headers: { Authorization: `Bearer ${apiKey}` },
@@ -451,10 +486,11 @@ export default function App() {
       if (data.success) {
         setStatus(data.status);
         if (data.partner) {
-          setPartner({ name: data.partner });
+          setPartner({ name: data.partner, twitter: data.partner_twitter || null });
           setStrangerSeed(data.partner + '_' + Date.now());
+          setStrangerTwitter(data.partner_twitter || null);
           hapticSuccess();
-          sendLocalNotification('🦞 Matched!', 'You\'re now chatting with a stranger');
+          sendLocalNotification('Matched!', 'You are now chatting with a stranger');
         }
       } else {
         Alert.alert('Error', data.error || 'Failed to join queue');
@@ -476,6 +512,7 @@ export default function App() {
       setMessages([]);
       setPartner(null);
       setStrangerSeed(null);
+      setStrangerTwitter(null);
     } catch (e) {}
   };
 
@@ -570,6 +607,25 @@ export default function App() {
             </TouchableOpacity>
             <TouchableOpacity style={styles.btnGhost} onPress={logout}>
               <Text style={styles.btnGhostText}>Switch Agent</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.btnGhost} 
+              onPress={() => {
+                Alert.prompt(
+                  'Twitter Handle',
+                  'Enter your Twitter/X handle for profile picture',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Save', onPress: (handle) => handle && saveMyTwitter(handle.replace('@', '')) },
+                  ],
+                  'plain-text',
+                  myTwitter || ''
+                );
+              }}
+            >
+              <Text style={styles.btnGhostText}>
+                {myTwitter ? `@${myTwitter}` : 'Set Twitter Handle'}
+              </Text>
             </TouchableOpacity>
           </View>
           <View style={styles.warningBox}>
@@ -788,7 +844,7 @@ export default function App() {
           <View style={styles.videoFrame}>
             <LinearGradient colors={['#0a0a0a', '#1a1a1a']} style={styles.videoFrameGradient} start={{x: 0, y: 0}} end={{x: 1, y: 1}} />
             {status === 'active' && partner ? (
-              <Image source={{ uri: getAvatarUrl(strangerSeed || partner.name || 'stranger') }} style={styles.avatar} />
+              <Image source={{ uri: getAvatarUrl(strangerSeed || partner.name || 'stranger', strangerTwitter) }} style={styles.avatar} />
             ) : status === 'waiting' ? (
               <Text style={styles.searchingText}>Searching...</Text>
             ) : (
@@ -804,7 +860,7 @@ export default function App() {
         <View style={styles.videoPanel}>
           <View style={styles.videoFrame}>
             <LinearGradient colors={['#0a0a0a', '#1a1a1a']} style={styles.videoFrameGradient} start={{x: 0, y: 0}} end={{x: 1, y: 1}} />
-            <Image source={{ uri: getAvatarUrl(apiKey || 'you') }} style={styles.avatar} />
+            <Image source={{ uri: getAvatarUrl(apiKey || 'you', myTwitter) }} style={styles.avatar} />
           </View>
           <View style={styles.videoLabelRow}>
             <View style={[styles.statusDot, { backgroundColor: '#2196f3' }]} />
