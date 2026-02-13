@@ -1,4 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Buffer } from 'buffer';
+
+// Polyfill btoa/atob for React Native
+if (typeof btoa === 'undefined') {
+  global.btoa = (str) => Buffer.from(str, 'binary').toString('base64');
+}
+if (typeof atob === 'undefined') {
+  global.atob = (str) => Buffer.from(str, 'base64').toString('binary');
+}
 import {
   StyleSheet,
   Text,
@@ -40,6 +49,17 @@ Notifications.setNotificationHandler({
 
 const API_BASE = 'https://www.clawmegle.xyz';
 const COLLECTIVE_API = 'https://www.clawmegle.xyz/api/collective/query';
+const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+const PAY_TO = '0x81FD234f63Dd559d0EDA56d17BB1Bb78f236DB37';
+
+// Generate random nonce for EIP-3009
+const generateNonce = () => {
+  const bytes = new Uint8Array(32);
+  for (let i = 0; i < 32; i++) {
+    bytes[i] = Math.floor(Math.random() * 256);
+  }
+  return '0x' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+};
 const { width } = Dimensions.get('window');
 
 const SCREENS = {
@@ -328,55 +348,98 @@ function AppContent() {
 
     if (!paymentRequired) return;
 
-    // Payment details from x402 response
-    const payTo = '0x81FD234f63Dd559d0EDA56d17BB1Bb78f236DB37';
-    const usdcAddress = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
-    const amountWei = '50000'; // 0.05 USDC = 50000 (6 decimals)
-
     setPendingPayment(true);
 
     try {
-      // Use Coinbase Wallet SDK to send USDC
+      // Get the accepts array from payment required
+      const accepts = paymentRequired.accepts?.[0];
+      if (!accepts) {
+        throw new Error('No payment options available');
+      }
+
+      // EIP-3009 TransferWithAuthorization (gasless signature)
+      const now = Math.floor(Date.now() / 1000);
+      const validAfter = now - 60;
+      const validBefore = now + 900; // 15 min
+      const nonce = generateNonce();
+      const value = accepts.amount || '50000'; // 0.05 USDC
+
+      // EIP-712 typed data for USDC transferWithAuthorization
+      const typedData = {
+        types: {
+          EIP712Domain: [
+            { name: 'name', type: 'string' },
+            { name: 'version', type: 'string' },
+            { name: 'chainId', type: 'uint256' },
+            { name: 'verifyingContract', type: 'address' },
+          ],
+          TransferWithAuthorization: [
+            { name: 'from', type: 'address' },
+            { name: 'to', type: 'address' },
+            { name: 'value', type: 'uint256' },
+            { name: 'validAfter', type: 'uint256' },
+            { name: 'validBefore', type: 'uint256' },
+            { name: 'nonce', type: 'bytes32' },
+          ],
+        },
+        primaryType: 'TransferWithAuthorization',
+        domain: {
+          name: 'USD Coin',
+          version: '2',
+          chainId: 8453,
+          verifyingContract: USDC_ADDRESS,
+        },
+        message: {
+          from: walletAddress,
+          to: PAY_TO,
+          value: value.toString(),
+          validAfter: validAfter.toString(),
+          validBefore: validBefore.toString(),
+          nonce,
+        },
+      };
+
+      // Sign with Coinbase Wallet (EIP-712)
       const results = await CoinbaseWallet.makeRequest([
         {
-          method: 'eth_sendTransaction',
-          params: [{
-            from: walletAddress,
-            to: usdcAddress,
-            data: `0xa9059cbb000000000000000000000000${payTo.slice(2).toLowerCase()}000000000000000000000000000000000000000000000000000000000000c350`, // transfer(to, 50000)
-            chainId: '0x2105', // Base = 8453
-          }]
+          method: 'eth_signTypedData_v4',
+          params: [walletAddress, JSON.stringify(typedData)],
         }
       ], { address: walletAddress, chain: 'eip155:8453' });
 
-      console.log('Payment result:', results);
-      
-      // If we get here, payment was approved - do the search
-      await searchCollectiveWithPayment();
-    } catch (e) {
-      console.log('Payment error:', e);
-      Alert.alert('Payment Failed', e.message || 'Transaction was rejected or failed');
-    }
-    
-    setPendingPayment(false);
-  };
+      const signature = results?.[0]?.result;
+      if (!signature) {
+        throw new Error('Signature not received');
+      }
 
-  // Search with payment - called after wallet callback
-  const searchCollectiveWithPayment = async () => {
-    if (!collectiveQuery.trim()) return;
-    
-    setCollectiveLoading(true);
-    setCollectiveError(null);
-    setPaymentRequired(null);
+      console.log('Got signature:', signature);
 
-    try {
-      // For now, retry the search - in full x402 flow we'd include payment proof
-      // The facilitator handles payment verification
+      // Build x402 payment payload (same as web)
+      const paymentPayload = {
+        x402Version: 2,
+        payload: {
+          authorization: {
+            from: walletAddress,
+            to: PAY_TO,
+            value: value.toString(),
+            validAfter: validAfter.toString(),
+            validBefore: validBefore.toString(),
+            nonce,
+          },
+          signature,
+        },
+        resource: paymentRequired.resource,
+        accepted: accepts,
+      };
+
+      const paymentSignature = btoa(JSON.stringify(paymentPayload));
+
+      // Send request with payment signature
       const res = await fetch(COLLECTIVE_API, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          // In production: include X-Payment header with signed tx
+          'PAYMENT-SIGNATURE': paymentSignature,
         },
         body: JSON.stringify({ query: collectiveQuery, limit: 10, synthesize: true }),
       });
@@ -384,19 +447,20 @@ function AppContent() {
       if (res.ok) {
         const data = await res.json();
         setCollectiveResults(data);
+        setPaymentRequired(null);
         hapticSuccess();
       } else if (res.status === 402) {
-        // Still needs payment - payment may not have completed
-        Alert.alert('Payment Pending', 'Transaction may still be processing. Please wait a moment and try again.');
+        Alert.alert('Payment Issue', 'Signature verification failed. Please try again.');
       } else {
         const err = await res.text();
         setCollectiveError(err || 'Search failed');
       }
     } catch (e) {
-      setCollectiveError(e.message);
+      console.log('Payment error:', e);
+      Alert.alert('Payment Failed', e.message || 'Signature was rejected');
     }
-
-    setCollectiveLoading(false);
+    
+    setPendingPayment(false);
   };
 
   // ============ CHAT FUNCTIONS ============
