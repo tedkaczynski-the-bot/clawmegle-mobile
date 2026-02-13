@@ -1,11 +1,11 @@
 // WalletConnect integration for Clawmegle
-// Simpler alternative to Smart Wallet that actually works in Expo Go
+// Works with Coinbase Wallet, MetaMask, and other WalletConnect-compatible wallets
 
+import '@walletconnect/react-native-compat'; // MUST be first!
 import { useWalletConnectModal, WalletConnectModal } from '@walletconnect/modal-react-native';
 
 // Get a free project ID at https://cloud.walletconnect.com
-// For now using a demo ID - replace with your own for production
-const PROJECT_ID = '3a8170812b534d0ff9d794f19a901d64'; // Demo project ID
+const PROJECT_ID = '3a8170812b534d0ff9d794f19a901d64';
 
 const providerMetadata = {
   name: 'Clawmegle',

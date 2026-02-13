@@ -1,4 +1,7 @@
-// ============ POLYFILLS (must be first) ============
+// ============ WALLETCONNECT COMPAT (must be VERY first) ============
+import '@walletconnect/react-native-compat';
+
+// ============ POLYFILLS ============
 import 'react-native-get-random-values';
 import 'react-native-url-polyfill/auto';
 import { polyfillWebCrypto } from 'expo-standard-web-crypto';
@@ -19,7 +22,7 @@ if (typeof atob === 'undefined') {
 
 // ============ IMPORTS ============
 import React, { useState, useEffect, useRef } from 'react';
-import { EIP1193Provider, Wallets } from '@mobile-wallet-protocol/client';
+import { PROJECT_ID, providerMetadata, sessionParams, WalletConnectModal, useWalletConnectModal } from './WalletConnect';
 import {
   StyleSheet,
   Text,
@@ -48,31 +51,11 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import * as WebBrowser from 'expo-web-browser';
 import * as ExpoLinking from 'expo-linking';
-import * as AuthSession from 'expo-auth-session';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-// ============ SMART WALLET CONFIG ============
-// Use AuthSession.makeRedirectUri which handles all environment edge cases
-// Dev build: clawmegle://
-// Expo Go: exp://...
-const CALLBACK_URL = AuthSession.makeRedirectUri({
-  scheme: 'clawmegle',
-  path: 'callback',
-});
-
-console.log('Smart Wallet callback URL:', CALLBACK_URL);
-console.log('BUILD: smartwallet-debug-' + Date.now());
-
-// Initialize Smart Wallet provider at module level
-const walletProvider = new EIP1193Provider({
-  metadata: {
-    name: 'Clawmegle',
-    customScheme: CALLBACK_URL,
-    chainIds: [8453], // Base mainnet
-    logoUrl: 'https://www.clawmegle.xyz/logo.png',
-  },
-  wallet: Wallets.CoinbaseSmartWallet,
-});
+// ============ WALLETCONNECT CONFIG ============
+console.log('WalletConnect Project ID:', PROJECT_ID);
+console.log('BUILD: walletconnect-' + Date.now());
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
@@ -154,10 +137,13 @@ const getAvatarUrl = (seed, twitterHandle = null) => {
   return `https://api.dicebear.com/7.x/${style}/png?seed=${encodeURIComponent(seed)}&size=120`;
 };
 
-// Inner app component that uses AppKit hooks
+// Inner app component that uses WalletConnect hooks
 function AppContent() {
   // Force light mode
   const theme = getTheme(false);
+  
+  // WalletConnect hook
+  const { open, isConnected: wcConnected, provider, address: wcAddress } = useWalletConnectModal();
   
   const [screen, setScreen] = useState(SCREENS.LOADING);
   const [activeTab, setActiveTab] = useState('chat'); // 'chat' | 'collective'
@@ -176,53 +162,35 @@ function AppContent() {
   const sendSoundRef = useRef(null);
   const prevMessageCount = useRef(0);
 
-  // Wallet state
+  // Wallet state - synced with WalletConnect
   const [walletAddress, setWalletAddress] = useState(null);
   const [walletConnecting, setWalletConnecting] = useState(false);
-  const isConnected = !!walletAddress;
+  const isConnected = wcConnected && !!walletAddress;
 
-  // Set up wallet event listeners and load saved address
+  // Sync WalletConnect address to local state
+  useEffect(() => {
+    if (wcAddress) {
+      setWalletAddress(wcAddress);
+      AsyncStorage.setItem('@clawmegle_wallet', wcAddress);
+    }
+  }, [wcAddress]);
+
+  // Load saved address on mount
   useEffect(() => {
     AsyncStorage.getItem('@clawmegle_wallet').then((addr) => {
       if (addr) setWalletAddress(addr);
     });
-
-    walletProvider.addListener('accountsChanged', (accounts) => {
-      if (accounts && Array.isArray(accounts) && accounts[0]) {
-        setWalletAddress(accounts[0]);
-        AsyncStorage.setItem('@clawmegle_wallet', accounts[0]);
-      }
-    });
-    
-    walletProvider.addListener('disconnect', () => {
-      setWalletAddress(null);
-      AsyncStorage.removeItem('@clawmegle_wallet');
-    });
-
-    return () => {
-      walletProvider.removeListener('accountsChanged');
-      walletProvider.removeListener('disconnect');
-    };
   }, []);
 
-  // Connect wallet using Coinbase Smart Wallet
+  // Connect wallet using WalletConnect modal
   const connectWallet = async () => {
     setWalletConnecting(true);
     try {
-      console.log('Connecting to Coinbase Smart Wallet...');
-      console.log('Callback URL configured:', CALLBACK_URL);
-      const addresses = await walletProvider.request({ method: 'eth_requestAccounts' });
-      console.log('Got addresses:', addresses);
-      if (addresses && addresses[0]) {
-        setWalletAddress(addresses[0]);
-        await AsyncStorage.setItem('@clawmegle_wallet', addresses[0]);
-        hapticSuccess();
-      }
+      console.log('Opening WalletConnect modal...');
+      await open();
+      hapticSuccess();
     } catch (error) {
-      console.log('Wallet connection error:', JSON.stringify(error, null, 2));
-      console.log('Error message:', error?.message);
-      console.log('Error code:', error?.code);
-      console.log('Error data:', JSON.stringify(error?.data, null, 2));
+      console.log('Wallet connection error:', error);
       Alert.alert('Connection Failed', error.message || 'Unknown error');
       hapticError();
     }
@@ -232,7 +200,7 @@ function AppContent() {
   // Disconnect wallet
   const disconnectWallet = async () => {
     try {
-      await walletProvider.disconnect();
+      if (provider) await provider.disconnect();
     } catch (e) {
       console.log('Disconnect error:', e);
     }
@@ -464,8 +432,11 @@ function AppContent() {
         },
       };
 
-      // Sign with wallet (EIP-712) using Smart Wallet provider
-      const signature = await walletProvider.request({
+      // Sign with wallet (EIP-712) using WalletConnect provider
+      if (!provider) {
+        throw new Error('Wallet not connected');
+      }
+      const signature = await provider.request({
         method: 'eth_signTypedData_v4',
         params: [walletAddress, JSON.stringify(typedData)],
       });
@@ -1738,6 +1709,11 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AppContent />
+      <WalletConnectModal
+        projectId={PROJECT_ID}
+        providerMetadata={providerMetadata}
+        sessionParams={sessionParams}
+      />
     </SafeAreaProvider>
   );
 }
