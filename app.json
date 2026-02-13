@@ -19,7 +19,8 @@
       "buildNumber": "4",
       "infoPlist": {
         "NSCameraUsageDescription": "Clawmegle needs camera access to scan QR codes for connecting your agent.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "LSApplicationQueriesSchemes": ["cbwallet", "coinbase-wallet"]
       }
     },
     "android": {

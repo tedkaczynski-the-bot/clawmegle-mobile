@@ -170,16 +170,30 @@ function AppContent() {
   const connectWallet = async () => {
     setWalletConnecting(true);
     try {
+      // Check if Coinbase Wallet is installed
+      const isInstalled = await CoinbaseWallet.isConnected().catch(() => false);
+      console.log('Coinbase Wallet connected status:', isInstalled);
+      
       const [results, account] = await CoinbaseWallet.initiateHandshake([
         { method: 'eth_requestAccounts', params: [] }
       ]);
+      console.log('Handshake results:', results, 'Account:', account);
+      
       if (account?.address) {
         setWalletAddress(account.address);
         await AsyncStorage.setItem('@clawmegle_wallet', account.address);
+      } else if (results?.[0]?.result?.[0]) {
+        // Alternative format
+        const addr = results[0].result[0];
+        setWalletAddress(addr);
+        await AsyncStorage.setItem('@clawmegle_wallet', addr);
       }
     } catch (error) {
       console.log('Wallet connection error:', error);
-      Alert.alert('Connection Failed', 'Could not connect to Coinbase Wallet. Make sure the app is installed.');
+      Alert.alert(
+        'Connection Failed', 
+        `Could not connect to Coinbase Wallet.\n\nMake sure Coinbase Wallet is installed and try again.\n\nError: ${error.message || error}`
+      );
     }
     setWalletConnecting(false);
   };
@@ -204,6 +218,7 @@ function AppContent() {
   const [collectiveLoading, setCollectiveLoading] = useState(false);
   const [collectiveError, setCollectiveError] = useState(null);
   const [paymentRequired, setPaymentRequired] = useState(null);
+  const [previewUsed, setPreviewUsed] = useState(false);
 
   // Payment state
   const [pendingPayment, setPendingPayment] = useState(false);
@@ -306,6 +321,28 @@ function AppContent() {
     setPaymentRequired(null);
 
     try {
+      // If preview not used, try free preview first
+      if (!previewUsed) {
+        const previewRes = await fetch(`${API_BASE}/api/collective/preview?q=${encodeURIComponent(collectiveQuery)}`);
+        const previewData = await previewRes.json();
+        
+        if (previewData.success) {
+          setCollectiveResults({
+            synthesis: previewData.answer,
+            results: previewData.samples || [],
+            total: previewData.samples?.length || 0,
+          });
+          setPreviewUsed(true);
+          hapticSuccess();
+          setCollectiveLoading(false);
+          return;
+        } else if (previewData.error?.includes('limit')) {
+          setPreviewUsed(true);
+          // Fall through to paid query
+        }
+      }
+
+      // Paid query via x402
       const res = await fetch(COLLECTIVE_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -758,7 +795,7 @@ function AppContent() {
             >
               <LinearGradient colors={['#7bb8e8', '#6fa8dc']} style={styles.btnPrimaryGradient} />
               <Text style={styles.btnPrimaryText}>
-                {collectiveLoading ? 'Searching...' : 'Search ($0.05)'}
+                {collectiveLoading ? 'Searching...' : (previewUsed ? 'Search ($0.05)' : 'Search (free)')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -766,7 +803,7 @@ function AppContent() {
           {/* Results Area */}
           <ScrollView style={styles.collectiveResults}>
             {collectiveLoading && (
-              <ActivityIndicator size="large" color="#9b59b6" style={{ marginTop: 20 }} />
+              <ActivityIndicator size="large" color="#6fa8dc" style={{ marginTop: 20 }} />
             )}
 
             {paymentRequired && (
@@ -797,7 +834,7 @@ function AppContent() {
                     onPress={connectWallet}
                     disabled={walletConnecting}
                   >
-                    <LinearGradient colors={['#9b59b6', '#8e44ad']} style={styles.btnPrimaryGradient} />
+                    <LinearGradient colors={['#7bb8e8', '#6fa8dc']} style={styles.btnPrimaryGradient} />
                     <Text style={styles.btnPrimaryText}>{walletConnecting ? 'Connecting...' : 'Connect Wallet'}</Text>
                   </TouchableOpacity>
                 )}
