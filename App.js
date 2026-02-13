@@ -68,12 +68,17 @@ const walletConnectProviderMetadata = {
 };
 
 const sessionParams = {
-  namespaces: {
+  // Use optionalNamespaces to allow connection even if wallet doesn't have Base pre-configured
+  // Then we can request chain switch after connection
+  optionalNamespaces: {
     eip155: {
-      methods: ['eth_sendTransaction', 'personal_sign', 'eth_signTypedData_v4'],
-      chains: ['eip155:8453'],
+      methods: ['eth_sendTransaction', 'personal_sign', 'eth_signTypedData_v4', 'wallet_switchEthereumChain', 'wallet_addEthereumChain'],
+      chains: ['eip155:1', 'eip155:8453'], // Ethereum mainnet + Base
       events: ['chainChanged', 'accountsChanged'],
-      rpcMap: { 8453: 'https://mainnet.base.org' },
+      rpcMap: { 
+        1: 'https://eth.llamarpc.com',
+        8453: 'https://mainnet.base.org' 
+      },
     },
   },
 };
