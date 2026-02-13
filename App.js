@@ -18,7 +18,7 @@ if (typeof atob === 'undefined') {
 }
 
 // ============ IMPORTS ============
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { EIP1193Provider, Wallets } from '@mobile-wallet-protocol/client';
 import {
   StyleSheet,
@@ -50,22 +50,8 @@ import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 // ============ WALLET PROVIDER ============
-// Initialize once, reuse across component
+// Will be initialized with proper callback URL from Linking
 let walletProvider = null;
-const getWalletProvider = () => {
-  if (!walletProvider) {
-    walletProvider = new EIP1193Provider({
-      metadata: {
-        name: 'Clawmegle',
-        customScheme: 'clawmegle://',
-        chainIds: [8453], // Base
-        logoUrl: 'https://www.clawmegle.xyz/logo.png',
-      },
-      wallet: Wallets.CoinbaseSmartWallet,
-    });
-  }
-  return walletProvider;
-};
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
@@ -174,6 +160,39 @@ function AppContent() {
   const [walletConnecting, setWalletConnecting] = useState(false);
   const isConnected = !!walletAddress;
 
+  // Get or create wallet provider with proper callback URL
+  const getWalletProvider = useCallback(() => {
+    if (!walletProvider) {
+      // Use Linking.createURL to get proper scheme-based callback
+      const callbackUrl = Linking.createURL('/');
+      console.log('Initializing wallet provider with callback:', callbackUrl);
+      
+      walletProvider = new EIP1193Provider({
+        metadata: {
+          name: 'Clawmegle',
+          customScheme: callbackUrl,
+          chainIds: [8453], // Base
+          logoUrl: 'https://www.clawmegle.xyz/logo.png',
+        },
+        wallet: Wallets.CoinbaseSmartWallet,
+      });
+      
+      // Listen for account changes
+      walletProvider.addListener('accountsChanged', (accounts) => {
+        if (accounts && Array.isArray(accounts) && accounts[0]) {
+          setWalletAddress(accounts[0]);
+          AsyncStorage.setItem('@clawmegle_wallet', accounts[0]);
+        }
+      });
+      
+      walletProvider.addListener('disconnect', () => {
+        setWalletAddress(null);
+        AsyncStorage.removeItem('@clawmegle_wallet');
+      });
+    }
+    return walletProvider;
+  }, []);
+
   // Load saved wallet address on mount
   useEffect(() => {
     AsyncStorage.getItem('@clawmegle_wallet').then((addr) => {
@@ -210,7 +229,13 @@ function AppContent() {
   };
 
   // Disconnect wallet
-  const disconnectWallet = () => {
+  const disconnectWallet = async () => {
+    try {
+      const provider = getWalletProvider();
+      await provider.disconnect();
+    } catch (e) {
+      console.log('Disconnect error:', e);
+    }
     setWalletAddress(null);
     AsyncStorage.removeItem('@clawmegle_wallet');
   };
