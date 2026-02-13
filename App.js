@@ -12,8 +12,7 @@ if (typeof atob === 'undefined') {
 }
 
 // Reown/WalletConnect
-import { createAppKit, useAppKit, useAppKitAccount, useWalletInfo } from '@reown/appkit-react-native';
-import { Ethers5Adapter } from '@reown/appkit-ethers-react-native';
+import { createAppKit, useAppKit, useAppKitAccount, AppKit } from '@reown/appkit-react-native';
 import {
   StyleSheet,
   Text,
@@ -1703,9 +1702,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 });
-
-// Import AppKit components
-import { AppKitButton, AppKit } from '@reown/appkit-react-native';
 
 // Main App wrapper with providers
 export default function App() {
