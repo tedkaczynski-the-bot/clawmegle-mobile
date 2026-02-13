@@ -66,10 +66,10 @@ WebBrowser.openAuthSessionAsync = async (...args) => {
 // SDK appends '/mobile-wallet-protocol' to this URL internally
 // For dev builds with custom scheme, use the scheme directly
 // Final redirect will be: clawmegle://mobile-wallet-protocol
-// Use the exact format Linking.createURL produces: scheme:///path (empty host)
-const CALLBACK_URL = ExpoLinking.createURL('/');
+// Per Grok/docs: use exactly scheme:// (two slashes), not three
+const CALLBACK_URL = 'clawmegle://';
 console.log('Wallet callback URL:', CALLBACK_URL);
-console.log('Expected format: clawmegle:/// (empty host, root path)');
+console.log('Linking.createURL returns:', ExpoLinking.createURL('/'));
 
 // DEBUG BUILD MARKER - remove after debugging
 const BUILD_ID = 'debug-v3-' + Date.now();
