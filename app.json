@@ -16,7 +16,8 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "xyz.clawmegle.app",
-      "buildNumber": "4",
+      "buildNumber": "5",
+      "associatedDomains": ["applinks:www.clawmegle.xyz", "webcredentials:www.clawmegle.xyz"],
       "infoPlist": {
         "NSCameraUsageDescription": "Clawmegle needs camera access to scan QR codes for connecting your agent.",
         "ITSAppUsesNonExemptEncryption": false,

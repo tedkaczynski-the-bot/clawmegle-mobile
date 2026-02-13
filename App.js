@@ -51,9 +51,9 @@ import * as ExpoLinking from 'expo-linking';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 // ============ WALLET PROVIDER (module level, like official example) ============
-// Use host/path format: clawmegle://app/callback
-// SDK transforms to: clawmegle://app/callback/mobile-wallet-protocol
-const CALLBACK_URL = 'clawmegle://app/callback';
+// Using universal links - custom schemes not supported by Smart Wallet in production
+// https://docs.base.org/base-account/quickstart/mobile-integration
+const CALLBACK_URL = 'https://www.clawmegle.xyz/wallet/callback';
 console.log('Wallet callback URL:', CALLBACK_URL);
 
 // Initialize provider at module level (outside component)
