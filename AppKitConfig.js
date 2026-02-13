@@ -20,7 +20,7 @@ const base = {
   },
 };
 
-const projectId = 'c4f79cc821944d9680842e34466bfb';
+const projectId = 'd92884a0833c9cbd15477f174153a510';
 
 const ethersAdapter = new EthersAdapter();
 
