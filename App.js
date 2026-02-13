@@ -170,10 +170,6 @@ function AppContent() {
   const connectWallet = async () => {
     setWalletConnecting(true);
     try {
-      // Check if Coinbase Wallet is installed
-      const isInstalled = await CoinbaseWallet.isConnected().catch(() => false);
-      console.log('Coinbase Wallet connected status:', isInstalled);
-      
       const [results, account] = await CoinbaseWallet.initiateHandshake([
         { method: 'eth_requestAccounts', params: [] }
       ]);
@@ -187,6 +183,8 @@ function AppContent() {
         const addr = results[0].result[0];
         setWalletAddress(addr);
         await AsyncStorage.setItem('@clawmegle_wallet', addr);
+      } else {
+        throw new Error('No address returned from wallet');
       }
     } catch (error) {
       console.log('Wallet connection error:', error);
