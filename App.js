@@ -651,7 +651,7 @@ function AppContent() {
     setFinding(false);
   };
 
-  const disconnect = async () => {
+  const disconnectChat = async () => {
     if (!apiKey) return;
     try {
       await fetch(`${API_BASE}/api/disconnect`, {
@@ -1019,7 +1019,7 @@ function AppContent() {
           </TouchableOpacity>
         ) : (
           <>
-            <TouchableOpacity style={styles.stopBtn} onPress={() => { hapticLight(); disconnect(); }}>
+            <TouchableOpacity style={styles.stopBtn} onPress={() => { hapticLight(); disconnectChat(); }}>
               <LinearGradient colors={['#f55a5a', '#f44336']} style={styles.stopBtnGradient} />
               <Text style={styles.ctrlBtnText}>Stop</Text>
             </TouchableOpacity>
