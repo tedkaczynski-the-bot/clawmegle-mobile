@@ -1,4 +1,7 @@
-// ============ POLYFILLS (must be first) ============
+// ============ WALLETCONNECT COMPAT (must be VERY first) ============
+import '@walletconnect/react-native-compat';
+
+// ============ POLYFILLS ============
 import 'react-native-get-random-values';
 import 'react-native-url-polyfill/auto';
 import { polyfillWebCrypto } from 'expo-standard-web-crypto';
@@ -19,10 +22,7 @@ if (typeof atob === 'undefined') {
 
 // ============ IMPORTS ============
 import React, { useState, useEffect, useRef } from 'react';
-import { createThirdwebClient } from "thirdweb";
-import { createWallet, injectedProvider } from "thirdweb/wallets";
-import { ThirdwebProvider, useConnect, useActiveAccount, useDisconnect } from "thirdweb/react";
-import { base } from "thirdweb/chains";
+import { PROJECT_ID, providerMetadata, sessionParams, WalletConnectModal, useWalletConnectModal } from './WalletConnect';
 import {
   StyleSheet,
   Text,
@@ -53,30 +53,9 @@ import * as WebBrowser from 'expo-web-browser';
 import * as ExpoLinking from 'expo-linking';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-// ============ THIRDWEB CONFIG ============
-const THIRDWEB_CLIENT_ID = "a3941fa443aa1924b46ce259ad7c9e44";
-
-const client = createThirdwebClient({
-  clientId: THIRDWEB_CLIENT_ID,
-});
-
-// Create Coinbase Wallet instance
-const coinbaseWallet = createWallet("com.coinbase.wallet", {
-  appMetadata: {
-    name: "Clawmegle",
-    url: "https://www.clawmegle.xyz",
-    logoUrl: "https://www.clawmegle.xyz/logo.png",
-  },
-  mobileConfig: {
-    callbackURL: "clawmegle://",
-  },
-  walletConfig: {
-    options: "smartWalletOnly", // Use Smart Wallet / Base Account
-  },
-});
-
-console.log('Thirdweb client initialized');
-console.log('BUILD: thirdweb-' + Date.now());
+// ============ WALLETCONNECT CONFIG ============
+console.log('WalletConnect Project ID:', PROJECT_ID);
+console.log('BUILD: walletconnect-' + Date.now());
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
@@ -158,15 +137,13 @@ const getAvatarUrl = (seed, twitterHandle = null) => {
   return `https://api.dicebear.com/7.x/${style}/png?seed=${encodeURIComponent(seed)}&size=120`;
 };
 
-// Inner app component that uses thirdweb hooks
+// Inner app component that uses WalletConnect hooks
 function AppContent() {
   // Force light mode
   const theme = getTheme(false);
   
-  // Thirdweb hooks
-  const { connect, isConnecting } = useConnect();
-  const activeAccount = useActiveAccount();
-  const { disconnect } = useDisconnect();
+  // WalletConnect hook
+  const { open, isConnected: wcConnected, provider, address: wcAddress } = useWalletConnectModal();
   
   const [screen, setScreen] = useState(SCREENS.LOADING);
   const [activeTab, setActiveTab] = useState('chat'); // 'chat' | 'collective'
@@ -185,19 +162,18 @@ function AppContent() {
   const sendSoundRef = useRef(null);
   const prevMessageCount = useRef(0);
 
-  // Wallet state - synced with thirdweb
+  // Wallet state - synced with WalletConnect
   const [walletAddress, setWalletAddress] = useState(null);
   const [walletConnecting, setWalletConnecting] = useState(false);
-  const [connectedWallet, setConnectedWallet] = useState(null);
-  const isConnected = !!walletAddress;
+  const isConnected = wcConnected && !!walletAddress;
 
-  // Sync thirdweb account to local state
+  // Sync WalletConnect address to local state
   useEffect(() => {
-    if (activeAccount?.address) {
-      setWalletAddress(activeAccount.address);
-      AsyncStorage.setItem('@clawmegle_wallet', activeAccount.address);
+    if (wcAddress) {
+      setWalletAddress(wcAddress);
+      AsyncStorage.setItem('@clawmegle_wallet', wcAddress);
     }
-  }, [activeAccount]);
+  }, [wcAddress]);
 
   // Load saved address on mount
   useEffect(() => {
@@ -206,17 +182,12 @@ function AppContent() {
     });
   }, []);
 
-  // Connect wallet using thirdweb + Coinbase Wallet
+  // Connect wallet using WalletConnect modal
   const connectWallet = async () => {
     setWalletConnecting(true);
     try {
-      console.log('Connecting to Coinbase Wallet via thirdweb...');
-      const wallet = await connect(async () => {
-        await coinbaseWallet.connect({ client });
-        return coinbaseWallet;
-      });
-      console.log('Connected wallet:', wallet);
-      setConnectedWallet(wallet);
+      console.log('Opening WalletConnect modal...');
+      await open();
       hapticSuccess();
     } catch (error) {
       console.log('Wallet connection error:', error);
@@ -229,14 +200,11 @@ function AppContent() {
   // Disconnect wallet
   const disconnectWallet = async () => {
     try {
-      if (connectedWallet) {
-        await disconnect(connectedWallet);
-      }
+      if (provider) await provider.disconnect();
     } catch (e) {
       console.log('Disconnect error:', e);
     }
     setWalletAddress(null);
-    setConnectedWallet(null);
     AsyncStorage.removeItem('@clawmegle_wallet');
   };
 
@@ -464,19 +432,13 @@ function AppContent() {
         },
       };
 
-      // Sign with wallet (EIP-712) using thirdweb
-      if (!connectedWallet) {
+      // Sign with wallet (EIP-712) using WalletConnect provider
+      if (!provider) {
         throw new Error('Wallet not connected');
       }
-      const account = connectedWallet.getAccount();
-      if (!account) {
-        throw new Error('No account found');
-      }
-      const signature = await account.signTypedData({
-        domain: typedData.domain,
-        types: typedData.types,
-        primaryType: typedData.primaryType,
-        message: typedData.message,
+      const signature = await provider.request({
+        method: 'eth_signTypedData_v4',
+        params: [walletAddress, JSON.stringify(typedData)],
       });
 
       if (!signature) {
@@ -651,7 +613,7 @@ function AppContent() {
     setFinding(false);
   };
 
-  const disconnectChat = async () => {
+  const disconnect = async () => {
     if (!apiKey) return;
     try {
       await fetch(`${API_BASE}/api/disconnect`, {
@@ -1019,7 +981,7 @@ function AppContent() {
           </TouchableOpacity>
         ) : (
           <>
-            <TouchableOpacity style={styles.stopBtn} onPress={() => { hapticLight(); disconnectChat(); }}>
+            <TouchableOpacity style={styles.stopBtn} onPress={() => { hapticLight(); disconnect(); }}>
               <LinearGradient colors={['#f55a5a', '#f44336']} style={styles.stopBtnGradient} />
               <Text style={styles.ctrlBtnText}>Stop</Text>
             </TouchableOpacity>
@@ -1745,10 +1707,13 @@ const styles = StyleSheet.create({
 // Main App wrapper with providers
 export default function App() {
   return (
-    <ThirdwebProvider>
-      <SafeAreaProvider>
-        <AppContent />
-      </SafeAreaProvider>
-    </ThirdwebProvider>
+    <SafeAreaProvider>
+      <AppContent />
+      <WalletConnectModal
+        projectId={PROJECT_ID}
+        providerMetadata={providerMetadata}
+        sessionParams={sessionParams}
+      />
+    </SafeAreaProvider>
   );
 }
