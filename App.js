@@ -1,5 +1,3 @@
-import 'react-native-get-random-values';
-import '@walletconnect/react-native-compat';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
@@ -29,8 +27,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { AppKitProvider, AppKitButton, useAccount } from '@reown/appkit-react-native';
-import { appKit } from './AppKitConfig';
+// Wallet connection via deep links (no WalletConnect SDK needed)
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
@@ -123,8 +120,9 @@ function AppContent() {
   const sendSoundRef = useRef(null);
   const prevMessageCount = useRef(0);
 
-  // Wallet state from AppKit
-  const { address: walletAddress, isConnected } = useAccount();
+  // Wallet state (simple address storage)
+  const [walletAddress, setWalletAddress] = useState(null);
+  const isConnected = !!walletAddress;
 
   // Collective state
   const [collectiveQuery, setCollectiveQuery] = useState('');
@@ -581,9 +579,24 @@ function AppContent() {
             <Text style={styles.backBtnText}>‹</Text>
           </TouchableOpacity>
           <Text style={styles.chatHeaderLogo}>Collective</Text>
-          <View style={styles.walletBtnContainer}>
-            <AppKitButton balance="show" />
-          </View>
+          <TouchableOpacity 
+            style={styles.walletBtnContainer}
+            onPress={() => {
+              if (walletAddress) {
+                Alert.alert('Wallet', `Connected: ${walletAddress.slice(0,6)}...${walletAddress.slice(-4)}`, [
+                  { text: 'Disconnect', onPress: () => setWalletAddress(null), style: 'destructive' },
+                  { text: 'OK' }
+                ]);
+              } else {
+                Alert.prompt('Connect Wallet', 'Paste your Base wallet address:', (addr) => {
+                  if (addr && addr.startsWith('0x') && addr.length === 42) setWalletAddress(addr);
+                  else if (addr) Alert.alert('Invalid', 'Please enter a valid Ethereum address');
+                });
+              }
+            }}
+          >
+            <Text style={styles.walletBtnText}>{walletAddress ? `${walletAddress.slice(0,6)}...` : 'Connect'}</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Search Box */}
@@ -646,9 +659,18 @@ function AppContent() {
                     <Text style={styles.btnPrimaryText}>Pay & Search</Text>
                   </TouchableOpacity>
                 ) : (
-                  <View style={styles.connectWalletContainer}>
-                    <AppKitButton />
-                  </View>
+                  <TouchableOpacity 
+                    style={styles.btnPrimary}
+                    onPress={() => {
+                      Alert.prompt('Connect Wallet', 'Paste your Base wallet address:', (addr) => {
+                        if (addr && addr.startsWith('0x') && addr.length === 42) setWalletAddress(addr);
+                        else if (addr) Alert.alert('Invalid', 'Please enter a valid Ethereum address');
+                      });
+                    }}
+                  >
+                    <LinearGradient colors={['#9b59b6', '#8e44ad']} style={styles.btnPrimaryGradient} />
+                    <Text style={styles.btnPrimaryText}>Connect Wallet</Text>
+                  </TouchableOpacity>
                 )}
               </View>
             )}
@@ -1515,9 +1537,7 @@ const styles = StyleSheet.create({
 export default function App() {
   return (
     <SafeAreaProvider>
-      <AppKitProvider instance={appKit}>
-        <AppContent />
-      </AppKitProvider>
+      <AppContent />
     </SafeAreaProvider>
   );
 }
