@@ -50,15 +50,15 @@ import * as WebBrowser from 'expo-web-browser';
 import * as ExpoLinking from 'expo-linking';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-// ============ SMART WALLET CONFIG ============
-// Use Universal Links for Smart Wallet (custom schemes not supported)
-// The AASA file at /.well-known/apple-app-site-association handles routing
-const CALLBACK_URL = 'https://www.clawmegle.xyz/callback/';
+// ============ COINBASE WALLET CONFIG ============
+// Using regular Coinbase Wallet (not Smart Wallet) - supports custom schemes
+// Smart Wallet SDK 1.0.0 only allows exp:// for demos, rejects other schemes
+const CALLBACK_URL = 'clawmegle://';
 
-console.log('Smart Wallet callback URL:', CALLBACK_URL);
-console.log('BUILD: smartwallet-devbuild-' + Date.now());
+console.log('Coinbase Wallet callback URL:', CALLBACK_URL);
+console.log('BUILD: cbwallet-devbuild-' + Date.now());
 
-// Initialize Smart Wallet provider at module level
+// Initialize Coinbase Wallet provider at module level
 const walletProvider = new EIP1193Provider({
   metadata: {
     name: 'Clawmegle',
@@ -66,7 +66,7 @@ const walletProvider = new EIP1193Provider({
     chainIds: [8453], // Base mainnet
     logoUrl: 'https://www.clawmegle.xyz/logo.png',
   },
-  wallet: Wallets.CoinbaseSmartWallet,
+  wallet: Wallets.CoinbaseWallet, // Regular CB Wallet, not SmartWallet
 });
 
 // Configure notification behavior
