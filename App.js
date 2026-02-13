@@ -1,6 +1,16 @@
 // ============ WALLETCONNECT COMPAT (must be VERY first) ============
 import '@walletconnect/react-native-compat';
 
+// ============ BACKHANDLER POLYFILL (for WalletConnect modal) ============
+import { BackHandler } from 'react-native';
+if (!BackHandler.removeEventListener) {
+  BackHandler.removeEventListener = (eventName, handler) => {
+    // In newer RN, use subscription.remove() instead
+    // This is a no-op polyfill for compatibility
+    console.log('BackHandler.removeEventListener polyfill called');
+  };
+}
+
 // ============ POLYFILLS ============
 import 'react-native-get-random-values';
 import 'react-native-url-polyfill/auto';
