@@ -56,9 +56,11 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 // Final redirect will be: clawmegle://mobile-wallet-protocol
 const CALLBACK_URL = 'clawmegle://';
 console.log('Wallet callback URL:', CALLBACK_URL);
-
-// Debug: Also log what Linking.createURL returns for comparison
 console.log('Linking.createURL("/"):', ExpoLinking.createURL('/'));
+
+// DEBUG BUILD MARKER - remove after debugging
+const BUILD_ID = 'debug-v3-' + Date.now();
+console.log('BUILD_ID:', BUILD_ID);
 
 // Initialize provider at module level (outside component)
 const walletProvider = new EIP1193Provider({
@@ -209,8 +211,19 @@ function AppContent() {
     setWalletConnecting(true);
     try {
       console.log('Requesting wallet connection...');
+      console.log('Provider metadata:', JSON.stringify(walletProvider.metadata || 'no metadata'));
       
-      const addresses = await walletProvider.request({ method: 'eth_requestAccounts' });
+      // Debug: wrap the request to catch any errors
+      let addresses;
+      try {
+        addresses = await walletProvider.request({ method: 'eth_requestAccounts' });
+      } catch (innerError) {
+        console.log('Inner error caught:', innerError);
+        console.log('Inner error type:', typeof innerError);
+        console.log('Inner error keys:', Object.keys(innerError || {}));
+        Alert.alert('Debug Info', `Inner error: ${JSON.stringify(innerError, null, 2)}`);
+        throw innerError;
+      }
       console.log('Connected addresses:', addresses);
       
       if (addresses && addresses[0]) {
