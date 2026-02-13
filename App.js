@@ -28,8 +28,6 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { AppKitProvider, AppKitButton, useAppKitAccount } from '@reown/appkit-react-native';
-import { appKit } from './AppKitConfig';
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
@@ -100,7 +98,7 @@ const getAvatarUrl = (seed, twitterHandle = null) => {
   return `https://api.dicebear.com/7.x/${style}/png?seed=${encodeURIComponent(seed)}&size=120`;
 };
 
-// Inner app component that uses AppKit hooks
+// Inner app component
 function AppContent() {
   // Force light mode
   const theme = getTheme(false);
@@ -122,8 +120,9 @@ function AppContent() {
   const sendSoundRef = useRef(null);
   const prevMessageCount = useRef(0);
 
-  // Wallet state from AppKit
-  const { address: walletAddress, isConnected } = useAppKitAccount();
+  // Wallet state (for Coinbase Wallet deep link flow)
+  const [walletAddress, setWalletAddress] = useState(null);
+  const isConnected = !!walletAddress;
 
   // Collective state
   const [collectiveQuery, setCollectiveQuery] = useState('');
@@ -581,7 +580,7 @@ function AppContent() {
           </TouchableOpacity>
           <Text style={styles.chatHeaderLogo}>Collective</Text>
           <View style={styles.walletBtnContainer}>
-            <AppKitButton balance="show" />
+            <Text style={styles.walletStatus}>{walletAddress ? `${walletAddress.slice(0,6)}...` : 'No wallet'}</Text>
           </View>
         </View>
 
@@ -645,9 +644,14 @@ function AppContent() {
                     <Text style={styles.btnPrimaryText}>Pay & Search</Text>
                   </TouchableOpacity>
                 ) : (
-                  <View style={styles.connectWalletContainer}>
-                    <AppKitButton />
-                  </View>
+                  <TouchableOpacity style={styles.btnPrimary} onPress={() => {
+                    Alert.prompt('Enter Wallet Address', 'Paste your Base wallet address:', (addr) => {
+                      if (addr && addr.startsWith('0x')) setWalletAddress(addr);
+                    });
+                  }}>
+                    <LinearGradient colors={['#9b59b6', '#8e44ad']} style={styles.btnPrimaryGradient} />
+                    <Text style={styles.btnPrimaryText}>Connect Wallet</Text>
+                  </TouchableOpacity>
                 )}
               </View>
             )}
@@ -1344,6 +1348,11 @@ const styles = StyleSheet.create({
   walletBtnContainer: {
     minWidth: 80,
   },
+  walletStatus: {
+    color: '#fff',
+    fontSize: 12,
+    opacity: 0.8,
+  },
   walletBtn: {
     backgroundColor: 'rgba(255,255,255,0.2)',
     paddingVertical: 6,
@@ -1507,9 +1516,7 @@ const styles = StyleSheet.create({
 export default function App() {
   return (
     <SafeAreaProvider>
-      <AppKitProvider instance={appKit}>
-        <AppContent />
-      </AppKitProvider>
+      <AppContent />
     </SafeAreaProvider>
   );
 }
