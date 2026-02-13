@@ -1,3 +1,5 @@
+import 'react-native-get-random-values';
+import '@walletconnect/react-native-compat';
 import React, { useState, useEffect, useRef } from 'react';
 import { Buffer } from 'buffer';
 
@@ -8,6 +10,10 @@ if (typeof btoa === 'undefined') {
 if (typeof atob === 'undefined') {
   global.atob = (str) => Buffer.from(str, 'base64').toString('binary');
 }
+
+// Reown/WalletConnect
+import { createAppKit, useAppKit, useAppKitAccount, useWalletInfo } from '@reown/appkit-react-native';
+import { Ethers5Adapter } from '@reown/appkit-ethers-react-native';
 import {
   StyleSheet,
   Text,
@@ -36,7 +42,41 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import * as CoinbaseWallet from '@coinbase/wallet-mobile-sdk';
+// Reown AppKit configuration
+const projectId = 'd92884a0833c9cbd15477f174153a510';
+
+const metadata = {
+  name: 'Clawmegle',
+  description: 'AI-to-AI chat with searchable Collective',
+  url: 'https://clawmegle.xyz',
+  icons: ['https://clawmegle.xyz/logo.png'],
+  redirect: {
+    native: 'clawmegle://',
+  },
+};
+
+const base = {
+  id: 8453,
+  name: 'Base',
+  network: 'base',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://mainnet.base.org'] },
+    public: { http: ['https://mainnet.base.org'] },
+  },
+  blockExplorers: {
+    default: { name: 'BaseScan', url: 'https://basescan.org' },
+  },
+};
+
+// Initialize AppKit
+createAppKit({
+  projectId,
+  metadata,
+  networks: [base],
+  defaultNetwork: base,
+  enableAnalytics: false,
+});
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
@@ -140,112 +180,32 @@ function AppContent() {
   const sendSoundRef = useRef(null);
   const prevMessageCount = useRef(0);
 
-  // Wallet state
-  const [walletAddress, setWalletAddress] = useState(null);
+  // Wallet state using Reown AppKit
+  const { open } = useAppKit();
+  const { address, isConnected } = useAppKitAccount();
+  const walletAddress = address;
   const [walletConnecting, setWalletConnecting] = useState(false);
-  const isConnected = !!walletAddress;
 
-  // Configure Coinbase Wallet SDK
-  const [sdkConfigured, setSdkConfigured] = useState(false);
-  
-  useEffect(() => {
-    try {
-      CoinbaseWallet.configure({
-        callbackURL: new URL('clawmegle://wallet'),
-        hostURL: new URL('https://wallet.coinbase.com/wsegue'),
-        hostPackageName: 'org.toshi',
-      });
-      setSdkConfigured(true);
-      console.log('Coinbase Wallet SDK configured successfully');
-    } catch (e) {
-      console.error('Failed to configure Coinbase Wallet SDK:', e);
-    }
-    
-    // Handle deep link callback
-    const handleUrl = ({ url }) => {
-      try {
-        if (url && url.startsWith('clawmegle://wallet')) {
-          CoinbaseWallet.handleResponse(new URL(url));
-        }
-      } catch (e) {
-        console.error('Failed to handle URL:', e);
-      }
-    };
-    
-    Linking.addEventListener('url', handleUrl);
-    return () => {
-      // Cleanup handled automatically in newer RN
-    };
-  }, []);
-
-  // Connect to Coinbase Wallet
+  // Connect wallet - opens Reown modal
   const connectWallet = async () => {
     setWalletConnecting(true);
     try {
-      // Check if Coinbase Wallet is installed
-      console.log('Checking if CB Wallet is installed...');
-      const canOpen = await Linking.canOpenURL('cbwallet://');
-      console.log('Can open cbwallet://:', canOpen);
-      
-      if (!canOpen) {
-        Alert.alert(
-          'Wallet Not Found',
-          'Please install Coinbase Wallet from the App Store first.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Get Wallet', onPress: () => Linking.openURL('https://www.coinbase.com/wallet') }
-          ]
-        );
-        setWalletConnecting(false);
-        return;
-      }
-      
-      console.log('Starting wallet handshake (delayed)...');
-      
-      // Small delay to let React Native bridge settle
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      const handshakeResult = await CoinbaseWallet.initiateHandshake([
-        { method: 'eth_requestAccounts', params: [] }
-      ]);
-      console.log('Handshake result:', JSON.stringify(handshakeResult));
-      
-      // Handle different response formats
-      const [results, account] = handshakeResult || [];
-      
-      if (account?.address) {
-        setWalletAddress(account.address);
-        await AsyncStorage.setItem('@clawmegle_wallet', account.address);
-      } else if (results?.[0]?.result?.[0]) {
-        const addr = results[0].result[0];
-        setWalletAddress(addr);
-        await AsyncStorage.setItem('@clawmegle_wallet', addr);
-      } else {
-        throw new Error('No address returned from wallet');
-      }
+      await open();
     } catch (error) {
       console.log('Wallet connection error:', error);
-      Alert.alert(
-        'Connection Failed', 
-        `Could not connect to Coinbase Wallet.\n\nMake sure Coinbase Wallet is installed and try again.\n\nError: ${error.message || error}`
-      );
+      Alert.alert('Connection Failed', error.message || 'Could not open wallet modal');
     }
     setWalletConnecting(false);
   };
 
   // Disconnect wallet
-  const disconnectWallet = () => {
-    CoinbaseWallet.resetSession();
-    setWalletAddress(null);
-    AsyncStorage.removeItem('@clawmegle_wallet');
+  const disconnectWallet = async () => {
+    try {
+      await open({ view: 'Account' }); // Opens account view where user can disconnect
+    } catch (e) {
+      console.log('Disconnect error:', e);
+    }
   };
-
-  // Load saved wallet on mount
-  useEffect(() => {
-    AsyncStorage.getItem('@clawmegle_wallet').then((addr) => {
-      if (addr) setWalletAddress(addr);
-    });
-  }, []);
 
   // Collective state
   const [collectiveQuery, setCollectiveQuery] = useState('');
@@ -471,18 +431,19 @@ function AppContent() {
         },
       };
 
-      // Sign with Coinbase Wallet (EIP-712)
-      const results = await CoinbaseWallet.makeRequest([
-        {
-          method: 'eth_signTypedData_v4',
-          params: [walletAddress, JSON.stringify(typedData)],
-        }
-      ], { address: walletAddress, chain: 'eip155:8453' });
+      // Sign with connected wallet via WalletConnect (EIP-712)
+      // For now, we'll need to use the provider from AppKit
+      // This requires additional setup - showing payment required for now
+      Alert.alert(
+        'Payment Required',
+        'Mobile wallet signing coming soon. Please use the web version at clawmegle.xyz for paid queries.',
+        [{ text: 'OK' }]
+      );
+      setPendingPayment(false);
+      return;
 
-      const signature = results?.[0]?.result;
-      if (!signature) {
-        throw new Error('Signature not received');
-      }
+      // TODO: Implement EIP-712 signing with Reown provider
+      const signature = null;
 
       console.log('Got signature:', signature);
 
@@ -1743,11 +1704,15 @@ const styles = StyleSheet.create({
   },
 });
 
+// Import AppKit components
+import { AppKitButton, AppKit } from '@reown/appkit-react-native';
+
 // Main App wrapper with providers
 export default function App() {
   return (
     <SafeAreaProvider>
       <AppContent />
+      <AppKit />
     </SafeAreaProvider>
   );
 }
