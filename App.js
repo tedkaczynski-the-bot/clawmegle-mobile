@@ -78,6 +78,14 @@ const sessionParams = {
   },
 };
 
+// Wallet IDs for WalletConnect explorer (prioritize these in modal)
+// Coinbase Wallet: fd20dc426fb37566d803205b19bbc1d4096b248ac04548e3cfb6b3a38bd033aa
+// MetaMask: c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96
+const FEATURED_WALLET_IDS = [
+  'fd20dc426fb37566d803205b19bbc1d4096b248ac04548e3cfb6b3a38bd033aa', // Coinbase Wallet
+  'c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96', // MetaMask
+];
+
 console.log('WalletConnect Project ID:', WALLETCONNECT_PROJECT_ID);
 console.log('BUILD: walletconnect-v1-' + Date.now());
 
@@ -1733,6 +1741,8 @@ export default function App() {
       <WalletConnectModal
         projectId={WALLETCONNECT_PROJECT_ID}
         providerMetadata={walletConnectProviderMetadata}
+        explorerRecommendedWalletIds={FEATURED_WALLET_IDS}
+        explorerExcludedWalletIds={[]}
       />
     </SafeAreaProvider>
   );
