@@ -51,8 +51,8 @@ import * as ExpoLinking from 'expo-linking';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 // ============ WALLET PROVIDER (module level, like official example) ============
-// Create callback URL using expo-linking (same as official example)
-const CALLBACK_URL = ExpoLinking.createURL('/');
+// Try with explicit callback path - maybe Coinbase needs a specific path format
+const CALLBACK_URL = 'clawmegle://callback';
 console.log('Wallet callback URL:', CALLBACK_URL);
 
 // Initialize provider at module level (outside component)
@@ -60,6 +60,8 @@ const walletProvider = new EIP1193Provider({
   metadata: {
     name: 'Clawmegle',
     customScheme: CALLBACK_URL,
+    chainIds: [8453], // Base
+    logoUrl: 'https://www.clawmegle.xyz/logo.png',
   },
   wallet: Wallets.CoinbaseSmartWallet,
 });
