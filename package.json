@@ -9,6 +9,7 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@coinbase/wallet-mobile-sdk": "^1.1.2",
     "@expo-google-fonts/poppins": "^0.4.1",
     "@mobile-wallet-protocol/client": "^1.0.0",
     "@noble/ciphers": "1.0.0",
