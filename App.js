@@ -187,6 +187,9 @@ function AppContent() {
     setWalletConnecting(true);
     try {
       console.log('Opening WalletConnect modal...');
+      // Test: Can we open Coinbase Wallet directly?
+      const cbWalletInstalled = await Linking.canOpenURL('cbwallet://');
+      console.log('Coinbase Wallet installed:', cbWalletInstalled);
       await open();
       hapticSuccess();
     } catch (error) {

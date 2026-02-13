@@ -4,7 +4,8 @@
 import '@walletconnect/react-native-compat'; // MUST be first!
 import { useWalletConnectModal, WalletConnectModal } from '@walletconnect/modal-react-native';
 
-// Get a free project ID at https://cloud.walletconnect.com
+// Get your own free project ID at https://cloud.walletconnect.com
+// This demo ID may be rate limited
 const PROJECT_ID = '3a8170812b534d0ff9d794f19a901d64';
 
 const providerMetadata = {
@@ -18,7 +19,7 @@ const providerMetadata = {
   },
 };
 
-// Session params for Base chain
+// Session params - request Base mainnet
 const sessionParams = {
   namespaces: {
     eip155: {
