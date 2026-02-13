@@ -47,6 +47,7 @@ import { Audio } from 'expo-av';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import * as WebBrowser from 'expo-web-browser';
+import * as ExpoLinking from 'expo-linking';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 // ============ WALLET PROVIDER ============
@@ -163,8 +164,8 @@ function AppContent() {
   // Get or create wallet provider with proper callback URL
   const getWalletProvider = useCallback(() => {
     if (!walletProvider) {
-      // Use Linking.createURL to get proper scheme-based callback
-      const callbackUrl = Linking.createURL('/');
+      // Use ExpoLinking.createURL to get proper scheme-based callback
+      const callbackUrl = ExpoLinking.createURL('/');
       console.log('Initializing wallet provider with callback:', callbackUrl);
       
       walletProvider = new EIP1193Provider({
