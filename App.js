@@ -187,6 +187,24 @@ function AppContent() {
     
     setWalletConnecting(true);
     try {
+      // Check if Coinbase Wallet is installed
+      console.log('Checking if CB Wallet is installed...');
+      const canOpen = await Linking.canOpenURL('cbwallet://');
+      console.log('Can open cbwallet://:', canOpen);
+      
+      if (!canOpen) {
+        Alert.alert(
+          'Wallet Not Found',
+          'Please install Coinbase Wallet from the App Store first.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Get Wallet', onPress: () => Linking.openURL('https://www.coinbase.com/wallet') }
+          ]
+        );
+        setWalletConnecting(false);
+        return;
+      }
+      
       console.log('Starting wallet handshake...');
       const handshakeResult = await CoinbaseWallet.initiateHandshake([
         { method: 'eth_requestAccounts', params: [] }
