@@ -19,7 +19,9 @@ if (typeof atob === 'undefined') {
 
 // ============ IMPORTS ============
 import React, { useState, useEffect, useRef } from 'react';
-import { EIP1193Provider, Wallets } from '@mobile-wallet-protocol/client';
+// WalletConnect imports (replacing broken Smart Wallet integration)
+import '@walletconnect/react-native-compat';
+import { useWalletConnectModal, WalletConnectModal } from '@walletconnect/modal-react-native';
 import {
   StyleSheet,
   Text,
@@ -50,50 +52,34 @@ import * as WebBrowser from 'expo-web-browser';
 import * as ExpoLinking from 'expo-linking';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-// ============ DEBUG: Intercept WebBrowser to see wallet response ============
-const _origOpenAuth = WebBrowser.openAuthSessionAsync;
-WebBrowser.openAuthSessionAsync = async (...args) => {
-  console.log('=== WEBBROWSER CALLED ===');
-  console.log('Redirect URL:', args[1]);
-  const result = await _origOpenAuth(...args);
-  console.log('=== WEBBROWSER RESULT ===');
-  console.log('Type:', result?.type);
-  console.log('URL:', result?.url?.substring(0, 200));
-  return result;
-};
+// ============ WALLETCONNECT CONFIG ============
+// Get your own project ID at https://cloud.walletconnect.com (free)
+const WALLETCONNECT_PROJECT_ID = '3a8170812b534d0ff9d794f19a901d64';
 
-// ============ WALLET PROVIDER (module level, like official example) ============
-// In Expo Go, we MUST use the Expo scheme (exp://...) - custom schemes aren't whitelisted
-// In standalone/dev builds, use our custom scheme
-// Smart Wallet only allows exp:// "exceptionally for demos" - custom schemes need universal links in prod
-import Constants from 'expo-constants';
-
-const isExpoGo = Constants.appOwnership === 'expo';
-const CALLBACK_URL = isExpoGo 
-  ? ExpoLinking.createURL('/')  // exp://10.0.0.x:8081/--/ in Expo Go
-  : 'clawmegle://';              // Custom scheme for dev/standalone builds
-
-console.log('Running in Expo Go:', isExpoGo);
-console.log('Wallet callback URL:', CALLBACK_URL);
-
-// DEBUG BUILD MARKER - remove after debugging
-const BUILD_ID = 'debug-v4-' + Date.now();
-console.log('BUILD_ID:', BUILD_ID);
-
-// Define metadata separately so we can log it
-const walletMetadata = {
+const walletConnectProviderMetadata = {
   name: 'Clawmegle',
-  customScheme: CALLBACK_URL,
-  chainIds: [8453], // Base mainnet
-  logoUrl: 'https://www.clawmegle.xyz/logo.png',
+  description: 'AI-to-AI random chat on Base',
+  url: 'https://www.clawmegle.xyz',
+  icons: ['https://www.clawmegle.xyz/logo.png'],
+  redirect: {
+    native: 'clawmegle://',
+    universal: 'https://www.clawmegle.xyz',
+  },
 };
-console.log('Wallet metadata being used:', JSON.stringify(walletMetadata, null, 2));
 
-// Initialize provider at module level (outside component)
-const walletProvider = new EIP1193Provider({
-  metadata: walletMetadata,
-  wallet: Wallets.CoinbaseSmartWallet,
-});
+const sessionParams = {
+  namespaces: {
+    eip155: {
+      methods: ['eth_sendTransaction', 'personal_sign', 'eth_signTypedData_v4'],
+      chains: ['eip155:8453'],
+      events: ['chainChanged', 'accountsChanged'],
+      rpcMap: { 8453: 'https://mainnet.base.org' },
+    },
+  },
+};
+
+console.log('WalletConnect Project ID:', WALLETCONNECT_PROJECT_ID);
+console.log('BUILD: walletconnect-v1-' + Date.now());
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
@@ -197,74 +183,37 @@ function AppContent() {
   const sendSoundRef = useRef(null);
   const prevMessageCount = useRef(0);
 
-  // Wallet state using Mobile Wallet Protocol
+  // WalletConnect hook
+  const { open, isConnected: wcConnected, address: wcAddress, provider: wcProvider } = useWalletConnectModal();
+  
+  // Wallet state
   const [walletAddress, setWalletAddress] = useState(null);
   const [walletConnecting, setWalletConnecting] = useState(false);
-  const isConnected = !!walletAddress;
+  const isConnected = wcConnected && !!wcAddress;
 
-  // Set up wallet event listeners and load saved address on mount
+  // Sync WalletConnect state to local state
   useEffect(() => {
-    // Load saved wallet address
-    AsyncStorage.getItem('@clawmegle_wallet').then((addr) => {
-      if (addr) setWalletAddress(addr);
-    });
+    if (wcAddress) {
+      setWalletAddress(wcAddress);
+      AsyncStorage.setItem('@clawmegle_wallet', wcAddress);
+    } else {
+      // Load saved wallet address on mount
+      AsyncStorage.getItem('@clawmegle_wallet').then((addr) => {
+        if (addr && !wcAddress) setWalletAddress(addr);
+      });
+    }
+  }, [wcAddress]);
 
-    // Listen for account changes (using module-level provider)
-    walletProvider.addListener('accountsChanged', (accounts) => {
-      if (accounts && Array.isArray(accounts) && accounts[0]) {
-        setWalletAddress(accounts[0]);
-        AsyncStorage.setItem('@clawmegle_wallet', accounts[0]);
-      }
-    });
-    
-    walletProvider.addListener('disconnect', () => {
-      setWalletAddress(null);
-      AsyncStorage.removeItem('@clawmegle_wallet');
-    });
-
-    return () => {
-      walletProvider.removeListener('accountsChanged');
-      walletProvider.removeListener('disconnect');
-    };
-  }, []);
-
-  // Connect wallet using EIP-1193 Provider (module-level)
+  // Connect wallet using WalletConnect modal
   const connectWallet = async () => {
     setWalletConnecting(true);
     try {
-      console.log('Requesting wallet connection...');
-      console.log('Using metadata:', JSON.stringify(walletMetadata));
-      
-      // Debug: wrap the request to catch any errors
-      let addresses;
-      try {
-        addresses = await walletProvider.request({ method: 'eth_requestAccounts' });
-      } catch (innerError) {
-        console.log('Inner error caught:', innerError);
-        console.log('Inner error type:', typeof innerError);
-        console.log('Inner error keys:', Object.keys(innerError || {}));
-        Alert.alert('Debug Info', `Inner error: ${JSON.stringify(innerError, null, 2)}`);
-        throw innerError;
-      }
-      console.log('Connected addresses:', addresses);
-      
-      if (addresses && addresses[0]) {
-        setWalletAddress(addresses[0]);
-        await AsyncStorage.setItem('@clawmegle_wallet', addresses[0]);
-        hapticSuccess();
-      } else {
-        throw new Error('No address returned from wallet');
-      }
+      console.log('Opening WalletConnect modal...');
+      await open({ sessionParams });
+      hapticSuccess();
     } catch (error) {
       console.log('Wallet connection error:', error);
-      console.log('Error name:', error?.name);
-      console.log('Error code:', error?.code);
-      console.log('Error stack:', error?.stack);
-      console.log('Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
-      Alert.alert(
-        'Connection Failed', 
-        `${error.message || 'Unknown error'}\n\nCode: ${error?.code || 'none'}\nName: ${error?.name || 'none'}`
-      );
+      Alert.alert('Connection Failed', error.message || 'Unknown error');
       hapticError();
     }
     setWalletConnecting(false);
@@ -273,7 +222,9 @@ function AppContent() {
   // Disconnect wallet
   const disconnectWallet = async () => {
     try {
-      await walletProvider.disconnect();
+      if (wcProvider) {
+        await wcProvider.disconnect();
+      }
     } catch (e) {
       console.log('Disconnect error:', e);
     }
@@ -505,8 +456,8 @@ function AppContent() {
         },
       };
 
-      // Sign with wallet (EIP-712) using module-level provider
-      const signature = await walletProvider.request({
+      // Sign with wallet (EIP-712) using WalletConnect provider
+      const signature = await wcProvider.request({
         method: 'eth_signTypedData_v4',
         params: [walletAddress, JSON.stringify(typedData)],
       });
@@ -1779,6 +1730,10 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AppContent />
+      <WalletConnectModal
+        projectId={WALLETCONNECT_PROJECT_ID}
+        providerMetadata={walletConnectProviderMetadata}
+      />
     </SafeAreaProvider>
   );
 }
