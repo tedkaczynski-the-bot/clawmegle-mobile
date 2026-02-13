@@ -1,7 +1,7 @@
 import 'react-native-get-random-values';
-import '@walletconnect/react-native-compat';
 import React, { useState, useEffect, useRef } from 'react';
 import { Buffer } from 'buffer';
+import * as CoinbaseWallet from '@coinbase/wallet-mobile-sdk';
 
 // Polyfill btoa/atob for React Native
 if (typeof btoa === 'undefined') {
@@ -10,10 +10,6 @@ if (typeof btoa === 'undefined') {
 if (typeof atob === 'undefined') {
   global.atob = (str) => Buffer.from(str, 'base64').toString('binary');
 }
-
-// Reown/WalletConnect
-import { createAppKit, useAppKit, useAccount, AppKit, AppKitProvider } from '@reown/appkit-react-native';
-import { EthersAdapter } from '@reown/appkit-ethers-react-native';
 import {
   StyleSheet,
   Text,
@@ -42,49 +38,20 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-// Reown AppKit configuration
-const projectId = 'd92884a0833c9cbd15477f174153a510';
-
-const metadata = {
-  name: 'Clawmegle',
-  description: 'AI-to-AI chat with searchable Collective',
-  url: 'https://clawmegle.xyz',
-  icons: ['https://clawmegle.xyz/logo.png'],
-  redirect: {
-    native: 'clawmegle://',
-  },
+// Configure Coinbase Wallet SDK
+const configureCoinbaseWallet = () => {
+  try {
+    CoinbaseWallet.configure({
+      callbackURL: new URL('clawmegle://wsegue'),
+      hostURL: new URL('https://wallet.coinbase.com/wsegue'),
+      hostPackageName: 'org.toshi',
+    });
+    return true;
+  } catch (e) {
+    console.error('Failed to configure Coinbase Wallet:', e);
+    return false;
+  }
 };
-
-const base = {
-  id: 8453,
-  name: 'Base',
-  chainNamespace: 'eip155',
-  caipNetworkId: 'eip155:8453',
-  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: {
-    default: { http: ['https://mainnet.base.org'] },
-  },
-  blockExplorers: {
-    default: { name: 'BaseScan', url: 'https://basescan.org' },
-  },
-};
-
-// Initialize EthersAdapter for EVM chains
-const ethersAdapter = new EthersAdapter();
-
-// Initialize AppKit
-const appKit = createAppKit({
-  projectId,
-  metadata,
-  networks: [base],
-  defaultNetwork: base,
-  adapters: [ethersAdapter],
-  themeMode: 'light',
-  themeVariables: {
-    accent: '#6fa8dc',
-  },
-  enableAnalytics: false,
-});
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
@@ -188,31 +155,72 @@ function AppContent() {
   const sendSoundRef = useRef(null);
   const prevMessageCount = useRef(0);
 
-  // Wallet state using Reown AppKit
-  const { open } = useAppKit();
-  const { address, isConnected } = useAccount();
-  const walletAddress = address;
+  // Wallet state using Coinbase Wallet SDK
+  const [walletAddress, setWalletAddress] = useState(null);
   const [walletConnecting, setWalletConnecting] = useState(false);
+  const [sdkConfigured, setSdkConfigured] = useState(false);
+  const isConnected = !!walletAddress;
 
-  // Connect wallet - opens Reown modal
+  // Configure SDK on mount
+  useEffect(() => {
+    const configured = configureCoinbaseWallet();
+    setSdkConfigured(configured);
+    
+    // Load saved wallet address
+    AsyncStorage.getItem('@clawmegle_wallet').then((addr) => {
+      if (addr) setWalletAddress(addr);
+    });
+
+    // Handle deep link callbacks
+    const handleUrl = ({ url }) => {
+      try {
+        if (url && url.includes('wsegue')) {
+          CoinbaseWallet.handleResponse(new URL(url));
+        }
+      } catch (e) {
+        console.error('Failed to handle URL:', e);
+      }
+    };
+    
+    const subscription = Linking.addEventListener('url', handleUrl);
+    return () => subscription?.remove();
+  }, []);
+
+  // Connect wallet
   const connectWallet = async () => {
+    if (!sdkConfigured) {
+      Alert.alert('SDK Error', 'Coinbase Wallet SDK not configured. Please restart the app.');
+      return;
+    }
+    
     setWalletConnecting(true);
     try {
-      await open();
+      const [results, account] = await CoinbaseWallet.initiateHandshake([
+        { method: 'eth_requestAccounts', params: [] }
+      ]);
+      
+      const addr = account?.address || results?.[0]?.result?.[0];
+      if (addr) {
+        setWalletAddress(addr);
+        await AsyncStorage.setItem('@clawmegle_wallet', addr);
+      } else {
+        throw new Error('No address returned from wallet');
+      }
     } catch (error) {
       console.log('Wallet connection error:', error);
-      Alert.alert('Connection Failed', error.message || 'Could not open wallet modal');
+      Alert.alert(
+        'Connection Failed', 
+        'Could not connect to Coinbase Wallet. Make sure Coinbase Wallet is installed.'
+      );
     }
     setWalletConnecting(false);
   };
 
   // Disconnect wallet
-  const disconnectWallet = async () => {
-    try {
-      await open({ view: 'Account' }); // Opens account view where user can disconnect
-    } catch (e) {
-      console.log('Disconnect error:', e);
-    }
+  const disconnectWallet = () => {
+    CoinbaseWallet.resetSession();
+    setWalletAddress(null);
+    AsyncStorage.removeItem('@clawmegle_wallet');
   };
 
   // Collective state
@@ -439,19 +447,18 @@ function AppContent() {
         },
       };
 
-      // Sign with connected wallet via WalletConnect (EIP-712)
-      // For now, we'll need to use the provider from AppKit
-      // This requires additional setup - showing payment required for now
-      Alert.alert(
-        'Payment Required',
-        'Mobile wallet signing coming soon. Please use the web version at clawmegle.xyz for paid queries.',
-        [{ text: 'OK' }]
-      );
-      setPendingPayment(false);
-      return;
+      // Sign with Coinbase Wallet (EIP-712)
+      const results = await CoinbaseWallet.makeRequest([
+        {
+          method: 'eth_signTypedData_v4',
+          params: [walletAddress, JSON.stringify(typedData)],
+        }
+      ]);
 
-      // TODO: Implement EIP-712 signing with Reown provider
-      const signature = null;
+      const signature = results?.[0]?.result;
+      if (!signature) {
+        throw new Error('Signature not received');
+      }
 
       console.log('Got signature:', signature);
 
@@ -1716,10 +1723,7 @@ const styles = StyleSheet.create({
 export default function App() {
   return (
     <SafeAreaProvider>
-      <AppKitProvider instance={appKit}>
-        <AppContent />
-        <AppKit />
-      </AppKitProvider>
+      <AppContent />
     </SafeAreaProvider>
   );
 }
