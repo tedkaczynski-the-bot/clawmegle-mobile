@@ -51,10 +51,9 @@ import * as ExpoLinking from 'expo-linking';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 // ============ SMART WALLET CONFIG ============
-// Use Linking.createURL to get the correct callback URL for the current environment
-// In dev builds with custom scheme, this returns clawmegle://
-// In Expo Go, this returns exp://... (whitelisted for demos)
-const CALLBACK_URL = ExpoLinking.createURL('/');
+// Use Universal Links for Smart Wallet (custom schemes not supported)
+// The AASA file at /.well-known/apple-app-site-association handles routing
+const CALLBACK_URL = 'https://www.clawmegle.xyz/callback/';
 
 console.log('Smart Wallet callback URL:', CALLBACK_URL);
 console.log('BUILD: smartwallet-devbuild-' + Date.now());
