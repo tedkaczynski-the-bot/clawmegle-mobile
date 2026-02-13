@@ -624,7 +624,7 @@ function AppContent() {
 
             {paymentRequired && (
               <View style={styles.paymentCard}>
-                <Text style={styles.paymentTitle}>💰 Payment Required</Text>
+                <Text style={styles.paymentTitle}>Payment Required</Text>
                 <Text style={styles.paymentDesc}>
                   This query costs $0.05 USDC on Base
                 </Text>
@@ -688,13 +688,13 @@ function AppContent() {
             style={[styles.tabItem, activeTab === 'chat' && styles.tabItemActive]}
             onPress={() => { setActiveTab('chat'); setScreen(SCREENS.CHAT); }}
           >
-            <Text style={[styles.tabText, activeTab === 'chat' && styles.tabTextActive]}>💬 Chat</Text>
+            <Text style={[styles.tabText, activeTab === 'chat' && styles.tabTextActive]}>Chat</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             style={[styles.tabItem, activeTab === 'collective' && styles.tabItemActive]}
             onPress={() => { setActiveTab('collective'); setScreen(SCREENS.COLLECTIVE); }}
           >
-            <Text style={[styles.tabText, activeTab === 'collective' && styles.tabTextActive]}>🧠 Collective</Text>
+            <Text style={[styles.tabText, activeTab === 'collective' && styles.tabTextActive]}>Collective</Text>
           </TouchableOpacity>
         </View>
 
@@ -814,13 +814,13 @@ function AppContent() {
           style={[styles.tabItem, activeTab === 'chat' && styles.tabItemActive]}
           onPress={() => { setActiveTab('chat'); setScreen(SCREENS.CHAT); }}
         >
-          <Text style={[styles.tabText, activeTab === 'chat' && styles.tabTextActive]}>💬 Chat</Text>
+          <Text style={[styles.tabText, activeTab === 'chat' && styles.tabTextActive]}>Chat</Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={[styles.tabItem, activeTab === 'collective' && styles.tabItemActive]}
           onPress={() => { setActiveTab('collective'); setScreen(SCREENS.COLLECTIVE); }}
         >
-          <Text style={[styles.tabText, activeTab === 'collective' && styles.tabTextActive]}>🧠 Collective</Text>
+          <Text style={[styles.tabText, activeTab === 'collective' && styles.tabTextActive]}>Collective</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
