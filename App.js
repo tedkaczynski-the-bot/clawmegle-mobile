@@ -1,7 +1,4 @@
-// ============ WALLETCONNECT COMPAT (MUST BE VERY FIRST) ============
-import '@walletconnect/react-native-compat';
-
-// ============ POLYFILLS ============
+// ============ POLYFILLS (must be first) ============
 import 'react-native-get-random-values';
 import 'react-native-url-polyfill/auto';
 import { polyfillWebCrypto } from 'expo-standard-web-crypto';
@@ -22,7 +19,7 @@ if (typeof atob === 'undefined') {
 
 // ============ IMPORTS ============
 import React, { useState, useEffect, useRef } from 'react';
-import { useWalletConnectModal, WalletConnectModal } from '@walletconnect/modal-react-native';
+import { EIP1193Provider, Wallets } from '@mobile-wallet-protocol/client';
 import {
   StyleSheet,
   Text,
@@ -53,47 +50,24 @@ import * as WebBrowser from 'expo-web-browser';
 import * as ExpoLinking from 'expo-linking';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-// ============ WALLETCONNECT CONFIG ============
-// Get your own project ID at https://cloud.walletconnect.com (free)
-const WALLETCONNECT_PROJECT_ID = '3a8170812b534d0ff9d794f19a901d64';
+// ============ SMART WALLET CONFIG ============
+// For development builds, use custom scheme (works with native deep links)
+// For Expo Go testing, this won't work - need dev build
+const CALLBACK_URL = 'clawmegle://';
 
-const walletConnectProviderMetadata = {
-  name: 'Clawmegle',
-  description: 'AI-to-AI random chat on Base',
-  url: 'https://www.clawmegle.xyz',
-  icons: ['https://www.clawmegle.xyz/logo.png'],
-  redirect: {
-    native: 'clawmegle://',
-    universal: 'https://www.clawmegle.xyz',
+console.log('Smart Wallet callback URL:', CALLBACK_URL);
+console.log('BUILD: smartwallet-devbuild-' + Date.now());
+
+// Initialize Smart Wallet provider at module level
+const walletProvider = new EIP1193Provider({
+  metadata: {
+    name: 'Clawmegle',
+    customScheme: CALLBACK_URL,
+    chainIds: [8453], // Base mainnet
+    logoUrl: 'https://www.clawmegle.xyz/logo.png',
   },
-};
-
-const sessionParams = {
-  // Use optionalNamespaces to allow connection even if wallet doesn't have Base pre-configured
-  // Then we can request chain switch after connection
-  optionalNamespaces: {
-    eip155: {
-      methods: ['eth_sendTransaction', 'personal_sign', 'eth_signTypedData_v4', 'wallet_switchEthereumChain', 'wallet_addEthereumChain'],
-      chains: ['eip155:1', 'eip155:8453'], // Ethereum mainnet + Base
-      events: ['chainChanged', 'accountsChanged'],
-      rpcMap: { 
-        1: 'https://eth.llamarpc.com',
-        8453: 'https://mainnet.base.org' 
-      },
-    },
-  },
-};
-
-// Wallet IDs for WalletConnect explorer (prioritize these in modal)
-// Coinbase Wallet: fd20dc426fb37566d803205b19bbc1d4096b248ac04548e3cfb6b3a38bd033aa
-// MetaMask: c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96
-const FEATURED_WALLET_IDS = [
-  'fd20dc426fb37566d803205b19bbc1d4096b248ac04548e3cfb6b3a38bd033aa', // Coinbase Wallet
-  'c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96', // MetaMask
-];
-
-console.log('WalletConnect Project ID:', WALLETCONNECT_PROJECT_ID);
-console.log('BUILD: walletconnect-v1-' + Date.now());
+  wallet: Wallets.CoinbaseSmartWallet,
+});
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
@@ -197,34 +171,46 @@ function AppContent() {
   const sendSoundRef = useRef(null);
   const prevMessageCount = useRef(0);
 
-  // WalletConnect hook
-  const { open, isConnected: wcConnected, address: wcAddress, provider: wcProvider } = useWalletConnectModal();
-  
   // Wallet state
   const [walletAddress, setWalletAddress] = useState(null);
   const [walletConnecting, setWalletConnecting] = useState(false);
-  const isConnected = wcConnected && !!wcAddress;
+  const isConnected = !!walletAddress;
 
-  // Sync WalletConnect state to local state
+  // Set up wallet event listeners and load saved address
   useEffect(() => {
-    if (wcAddress) {
-      setWalletAddress(wcAddress);
-      AsyncStorage.setItem('@clawmegle_wallet', wcAddress);
-    } else {
-      // Load saved wallet address on mount
-      AsyncStorage.getItem('@clawmegle_wallet').then((addr) => {
-        if (addr && !wcAddress) setWalletAddress(addr);
-      });
-    }
-  }, [wcAddress]);
+    AsyncStorage.getItem('@clawmegle_wallet').then((addr) => {
+      if (addr) setWalletAddress(addr);
+    });
 
-  // Connect wallet using WalletConnect modal
+    walletProvider.addListener('accountsChanged', (accounts) => {
+      if (accounts && Array.isArray(accounts) && accounts[0]) {
+        setWalletAddress(accounts[0]);
+        AsyncStorage.setItem('@clawmegle_wallet', accounts[0]);
+      }
+    });
+    
+    walletProvider.addListener('disconnect', () => {
+      setWalletAddress(null);
+      AsyncStorage.removeItem('@clawmegle_wallet');
+    });
+
+    return () => {
+      walletProvider.removeListener('accountsChanged');
+      walletProvider.removeListener('disconnect');
+    };
+  }, []);
+
+  // Connect wallet using Coinbase Smart Wallet
   const connectWallet = async () => {
     setWalletConnecting(true);
     try {
-      console.log('Opening WalletConnect modal...');
-      await open({ sessionParams });
-      hapticSuccess();
+      console.log('Connecting to Coinbase Smart Wallet...');
+      const addresses = await walletProvider.request({ method: 'eth_requestAccounts' });
+      if (addresses && addresses[0]) {
+        setWalletAddress(addresses[0]);
+        await AsyncStorage.setItem('@clawmegle_wallet', addresses[0]);
+        hapticSuccess();
+      }
     } catch (error) {
       console.log('Wallet connection error:', error);
       Alert.alert('Connection Failed', error.message || 'Unknown error');
@@ -236,9 +222,7 @@ function AppContent() {
   // Disconnect wallet
   const disconnectWallet = async () => {
     try {
-      if (wcProvider) {
-        await wcProvider.disconnect();
-      }
+      await walletProvider.disconnect();
     } catch (e) {
       console.log('Disconnect error:', e);
     }
@@ -470,8 +454,8 @@ function AppContent() {
         },
       };
 
-      // Sign with wallet (EIP-712) using WalletConnect provider
-      const signature = await wcProvider.request({
+      // Sign with wallet (EIP-712) using Smart Wallet provider
+      const signature = await walletProvider.request({
         method: 'eth_signTypedData_v4',
         params: [walletAddress, JSON.stringify(typedData)],
       });
@@ -1744,12 +1728,6 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AppContent />
-      <WalletConnectModal
-        projectId={WALLETCONNECT_PROJECT_ID}
-        providerMetadata={walletConnectProviderMetadata}
-        explorerRecommendedWalletIds={FEATURED_WALLET_IDS}
-        explorerExcludedWalletIds={[]}
-      />
     </SafeAreaProvider>
   );
 }
