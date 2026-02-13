@@ -80,6 +80,9 @@ const appKit = createAppKit({
   defaultNetwork: base,
   adapters: [ethersAdapter],
   themeMode: 'light',
+  themeVariables: {
+    accent: '#6fa8dc',
+  },
   enableAnalytics: false,
 });
 
