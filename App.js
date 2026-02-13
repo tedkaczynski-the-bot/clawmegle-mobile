@@ -54,9 +54,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 // SDK appends '/mobile-wallet-protocol' to this URL internally
 // For dev builds with custom scheme, use the scheme directly
 // Final redirect will be: clawmegle://mobile-wallet-protocol
-const CALLBACK_URL = 'clawmegle://';
+// Use the exact format Linking.createURL produces: scheme:///path (empty host)
+const CALLBACK_URL = ExpoLinking.createURL('/');
 console.log('Wallet callback URL:', CALLBACK_URL);
-console.log('Linking.createURL("/"):', ExpoLinking.createURL('/'));
+console.log('Expected format: clawmegle:/// (empty host, root path)');
 
 // DEBUG BUILD MARKER - remove after debugging
 const BUILD_ID = 'debug-v3-' + Date.now();
