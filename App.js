@@ -1,4 +1,7 @@
-// ============ POLYFILLS (must be first) ============
+// ============ WALLETCONNECT COMPAT (MUST BE VERY FIRST) ============
+import '@walletconnect/react-native-compat';
+
+// ============ POLYFILLS ============
 import 'react-native-get-random-values';
 import 'react-native-url-polyfill/auto';
 import { polyfillWebCrypto } from 'expo-standard-web-crypto';
@@ -19,8 +22,6 @@ if (typeof atob === 'undefined') {
 
 // ============ IMPORTS ============
 import React, { useState, useEffect, useRef } from 'react';
-// WalletConnect imports (replacing broken Smart Wallet integration)
-import '@walletconnect/react-native-compat';
 import { useWalletConnectModal, WalletConnectModal } from '@walletconnect/modal-react-native';
 import {
   StyleSheet,
