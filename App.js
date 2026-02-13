@@ -50,15 +50,15 @@ import * as WebBrowser from 'expo-web-browser';
 import * as ExpoLinking from 'expo-linking';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-// ============ COINBASE WALLET CONFIG ============
-// Using regular Coinbase Wallet (not Smart Wallet) - supports custom schemes
-// Smart Wallet SDK 1.0.0 only allows exp:// for demos, rejects other schemes
-const CALLBACK_URL = 'clawmegle://';
+// ============ SMART WALLET CONFIG ============
+// Smart Wallet requires custom scheme callback URL
+// The SDK appends /mobile-wallet-protocol to the path
+const CALLBACK_URL = 'clawmegle://callback';
 
-console.log('Coinbase Wallet callback URL:', CALLBACK_URL);
-console.log('BUILD: cbwallet-devbuild-' + Date.now());
+console.log('Smart Wallet callback URL:', CALLBACK_URL);
+console.log('BUILD: smartwallet-debug-' + Date.now());
 
-// Initialize Coinbase Wallet provider at module level
+// Initialize Smart Wallet provider at module level
 const walletProvider = new EIP1193Provider({
   metadata: {
     name: 'Clawmegle',
@@ -66,7 +66,7 @@ const walletProvider = new EIP1193Provider({
     chainIds: [8453], // Base mainnet
     logoUrl: 'https://www.clawmegle.xyz/logo.png',
   },
-  wallet: Wallets.CoinbaseWallet, // Regular CB Wallet, not SmartWallet
+  wallet: Wallets.CoinbaseSmartWallet,
 });
 
 // Configure notification behavior
@@ -205,14 +205,19 @@ function AppContent() {
     setWalletConnecting(true);
     try {
       console.log('Connecting to Coinbase Smart Wallet...');
+      console.log('Callback URL configured:', CALLBACK_URL);
       const addresses = await walletProvider.request({ method: 'eth_requestAccounts' });
+      console.log('Got addresses:', addresses);
       if (addresses && addresses[0]) {
         setWalletAddress(addresses[0]);
         await AsyncStorage.setItem('@clawmegle_wallet', addresses[0]);
         hapticSuccess();
       }
     } catch (error) {
-      console.log('Wallet connection error:', error);
+      console.log('Wallet connection error:', JSON.stringify(error, null, 2));
+      console.log('Error message:', error?.message);
+      console.log('Error code:', error?.code);
+      console.log('Error data:', JSON.stringify(error?.data, null, 2));
       Alert.alert('Connection Failed', error.message || 'Unknown error');
       hapticError();
     }
