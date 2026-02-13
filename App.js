@@ -1,3 +1,4 @@
+import '@walletconnect/react-native-compat';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
@@ -26,6 +27,9 @@ import { Audio } from 'expo-av';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import * as WebBrowser from 'expo-web-browser';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { AppKitProvider, AppKitButton, useAppKitAccount } from '@reown/appkit-react-native';
+import { appKit } from './AppKitConfig';
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
@@ -96,7 +100,8 @@ const getAvatarUrl = (seed, twitterHandle = null) => {
   return `https://api.dicebear.com/7.x/${style}/png?seed=${encodeURIComponent(seed)}&size=120`;
 };
 
-export default function App() {
+// Inner app component that uses AppKit hooks
+function AppContent() {
   // Force light mode
   const theme = getTheme(false);
   
@@ -117,9 +122,8 @@ export default function App() {
   const sendSoundRef = useRef(null);
   const prevMessageCount = useRef(0);
 
-  // Wallet state
-  const [walletAddress, setWalletAddress] = useState(null);
-  const [walletConnecting, setWalletConnecting] = useState(false);
+  // Wallet state from AppKit
+  const { address: walletAddress, isConnected } = useAppKitAccount();
 
   // Collective state
   const [collectiveQuery, setCollectiveQuery] = useState('');
@@ -128,9 +132,7 @@ export default function App() {
   const [collectiveError, setCollectiveError] = useState(null);
   const [paymentRequired, setPaymentRequired] = useState(null);
 
-  // Wallet modal state
-  const [showWalletModal, setShowWalletModal] = useState(false);
-  const [walletInputValue, setWalletInputValue] = useState('');
+  // Payment state
   const [pendingPayment, setPendingPayment] = useState(false);
 
   // Haptic feedback helpers
@@ -160,34 +162,7 @@ export default function App() {
 
   useEffect(() => {
     registerForPushNotifications();
-    loadWallet();
-
-    // Handle deep link callbacks from wallet
-    const handleUrl = (event) => {
-      const url = event.url;
-      // Check if this is a payment callback
-      if (url.includes('clawmegle://') && pendingPayment) {
-        // Payment completed, retry search
-        setPendingPayment(false);
-        hapticSuccess();
-        // Auto-retry the search after payment
-        if (collectiveQuery) {
-          searchCollectiveWithPayment();
-        }
-      }
-    };
-
-    const subscription = Linking.addEventListener('url', handleUrl);
-
-    // Check if app was opened via deep link
-    Linking.getInitialURL().then((url) => {
-      if (url && url.includes('clawmegle://') && pendingPayment) {
-        handleUrl({ url });
-      }
-    });
-
-    return () => subscription?.remove();
-  }, [pendingPayment, collectiveQuery]);
+  }, []);
 
   // Load sounds on mount
   useEffect(() => {
@@ -248,69 +223,6 @@ export default function App() {
   }, [apiKey, status]);
 
   // ============ WALLET FUNCTIONS ============
-  const loadWallet = async () => {
-    try {
-      const saved = await AsyncStorage.getItem('wallet_address');
-      if (saved) {
-        setWalletAddress(saved);
-      }
-    } catch (e) {}
-  };
-
-  const connectWallet = () => {
-    setShowWalletModal(true);
-    setWalletInputValue('');
-  };
-
-  const saveWalletAddress = async (address) => {
-    if (address && address.startsWith('0x') && address.length === 42) {
-      await AsyncStorage.setItem('wallet_address', address);
-      setWalletAddress(address);
-      setShowWalletModal(false);
-      setWalletInputValue('');
-      hapticSuccess();
-    } else {
-      Alert.alert('Invalid Address', 'Please enter a valid Ethereum address (0x...)');
-    }
-  };
-
-  const handleWalletQRScan = (result) => {
-    const data = result?.data || result;
-    if (!data) return;
-    
-    // Extract address from various QR formats
-    let address = data;
-    
-    // Handle ethereum: URI format
-    if (data.toLowerCase().startsWith('ethereum:')) {
-      address = data.substring(9).split('@')[0].split('?')[0].split('/')[0];
-    }
-    // Handle wc: WalletConnect URIs - ignore these
-    else if (data.toLowerCase().startsWith('wc:')) {
-      Alert.alert('Wrong QR Type', 'Please scan your wallet\'s "Receive" QR code that shows your address, not a WalletConnect QR.');
-      return;
-    }
-    // Handle coinbase: URIs
-    else if (data.toLowerCase().includes('coinbase')) {
-      const match = data.match(/0x[a-fA-F0-9]{40}/);
-      if (match) address = match[0];
-    }
-    
-    // Clean up address - extract just the 0x... part
-    const addressMatch = address.match(/0x[a-fA-F0-9]{40}/);
-    if (addressMatch) {
-      saveWalletAddress(addressMatch[0]);
-    } else {
-      Alert.alert('Invalid QR', 'Could not find a wallet address. Please scan your wallet\'s "Receive" QR code.');
-    }
-  };
-
-  const disconnectWallet = async () => {
-    await AsyncStorage.removeItem('wallet_address');
-    setWalletAddress(null);
-    hapticLight();
-  };
-
   // ============ COLLECTIVE FUNCTIONS ============
   const searchCollective = async () => {
     if (!collectiveQuery.trim()) return;
@@ -669,19 +581,7 @@ export default function App() {
           </TouchableOpacity>
           <Text style={styles.chatHeaderLogo}>Collective</Text>
           <View style={styles.walletBtnContainer}>
-            {walletAddress ? (
-              <TouchableOpacity onPress={disconnectWallet} style={styles.walletBtn}>
-                <Text style={styles.walletBtnText}>
-                  {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
-                </Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity onPress={connectWallet} style={styles.walletBtn} disabled={walletConnecting}>
-                <Text style={styles.walletBtnText}>
-                  {walletConnecting ? '...' : 'Connect'}
-                </Text>
-              </TouchableOpacity>
-            )}
+            <AppKitButton balance="show" />
           </View>
         </View>
 
@@ -739,16 +639,15 @@ export default function App() {
                     Amount: $0.05
                   </Text>
                 </View>
-                {walletAddress ? (
+                {isConnected ? (
                   <TouchableOpacity style={styles.btnPrimary} onPress={payAndSearch}>
                     <LinearGradient colors={['#27ae60', '#2ecc71']} style={styles.btnPrimaryGradient} />
                     <Text style={styles.btnPrimaryText}>Pay & Search</Text>
                   </TouchableOpacity>
                 ) : (
-                  <TouchableOpacity style={styles.btnPrimary} onPress={connectWallet}>
-                    <LinearGradient colors={['#3498db', '#2980b9']} style={styles.btnPrimaryGradient} />
-                    <Text style={styles.btnPrimaryText}>Connect Wallet</Text>
-                  </TouchableOpacity>
+                  <View style={styles.connectWalletContainer}>
+                    <AppKitButton />
+                  </View>
                 )}
               </View>
             )}
@@ -799,41 +698,6 @@ export default function App() {
           </TouchableOpacity>
         </View>
 
-        {/* Wallet Connection Modal */}
-        {showWalletModal && (
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Connect Wallet</Text>
-              <Text style={styles.modalSubtitle}>Enter your Base wallet address to pay for queries</Text>
-              
-              {/* Manual Entry - Primary */}
-              <TextInput
-                style={styles.walletInput}
-                placeholder="Paste address (0x...)"
-                placeholderTextColor="#999"
-                value={walletInputValue}
-                onChangeText={setWalletInputValue}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              <TouchableOpacity 
-                style={[styles.btnPrimary, { marginTop: 16, marginBottom: 8 }]} 
-                onPress={() => saveWalletAddress(walletInputValue)}
-              >
-                <LinearGradient colors={['#7bb8e8', '#6fa8dc']} style={styles.btnPrimaryGradient} />
-                <Text style={styles.btnPrimaryText}>Connect</Text>
-              </TouchableOpacity>
-
-              <Text style={styles.walletHint}>
-                Copy your address from Coinbase Wallet, MetaMask, or any Base-compatible wallet
-              </Text>
-
-              <TouchableOpacity style={styles.btnGhost} onPress={() => setShowWalletModal(false)}>
-                <Text style={styles.btnGhostText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
       </SafeAreaView>
     );
   }
@@ -1633,4 +1497,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
   },
+  connectWalletContainer: {
+    alignItems: 'center',
+    marginTop: 8,
+  },
 });
+
+// Main App wrapper with providers
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <AppKitProvider instance={appKit}>
+        <AppContent />
+      </AppKitProvider>
+    </SafeAreaProvider>
+  );
+}
