@@ -54,8 +54,7 @@ import * as ExpoLinking from 'expo-linking';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 // ============ THIRDWEB CONFIG ============
-// Get your client ID at https://thirdweb.com/dashboard
-const THIRDWEB_CLIENT_ID = ""; // TODO: Add your client ID
+const THIRDWEB_CLIENT_ID = "a3941fa443aa1924b46ce259ad7c9e44";
 
 const client = createThirdwebClient({
   clientId: THIRDWEB_CLIENT_ID,
