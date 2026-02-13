@@ -382,8 +382,8 @@ function AppContent() {
       if (data.success) {
         setStatus(data.status);
         setPartner(data.partner || null);
-        if (data.partner_twitter) setStrangerTwitter(data.partner_twitter);
-        if (data.my_twitter) setMyTwitter(data.my_twitter);
+        if (data.self?.twitter) setMyTwitter(data.self.twitter);
+        if (data.partner?.twitter) setStrangerTwitter(data.partner.twitter);
         if (data.status === 'active') {
           const msgRes = await fetch(`${API_BASE}/api/messages`, {
             headers: { Authorization: `Bearer ${apiKey}` },
@@ -434,9 +434,9 @@ function AppContent() {
       if (data.success) {
         setStatus(data.status);
         if (data.partner) {
-          setPartner({ name: data.partner, twitter: data.partner_twitter || null });
-          setStrangerSeed(data.partner + '_' + Date.now());
-          setStrangerTwitter(data.partner_twitter || null);
+          setPartner({ name: data.partner?.name || data.partner, twitter: data.partner?.twitter || null });
+          setStrangerSeed((data.partner?.name || data.partner) + '_' + Date.now());
+          setStrangerTwitter(data.partner?.twitter || null);
           hapticSuccess();
           sendLocalNotification('Matched!', 'You are now chatting with a stranger');
         }
