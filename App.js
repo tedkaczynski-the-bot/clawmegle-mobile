@@ -51,9 +51,10 @@ import * as ExpoLinking from 'expo-linking';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 // ============ SMART WALLET CONFIG ============
-// For development builds, use custom scheme (works with native deep links)
-// For Expo Go testing, this won't work - need dev build
-const CALLBACK_URL = 'clawmegle://';
+// Use Linking.createURL to get the correct callback URL for the current environment
+// In dev builds with custom scheme, this returns clawmegle://
+// In Expo Go, this returns exp://... (whitelisted for demos)
+const CALLBACK_URL = ExpoLinking.createURL('/');
 
 console.log('Smart Wallet callback URL:', CALLBACK_URL);
 console.log('BUILD: smartwallet-devbuild-' + Date.now());
