@@ -146,17 +146,29 @@ function AppContent() {
   const isConnected = !!walletAddress;
 
   // Configure Coinbase Wallet SDK
+  const [sdkConfigured, setSdkConfigured] = useState(false);
+  
   useEffect(() => {
-    CoinbaseWallet.configure({
-      callbackURL: new URL('clawmegle://wallet'),
-      hostURL: new URL('https://wallet.coinbase.com/wsegue'),
-      hostPackageName: 'org.toshi',
-    });
+    try {
+      CoinbaseWallet.configure({
+        callbackURL: new URL('clawmegle://wallet'),
+        hostURL: new URL('https://wallet.coinbase.com/wsegue'),
+        hostPackageName: 'org.toshi',
+      });
+      setSdkConfigured(true);
+      console.log('Coinbase Wallet SDK configured successfully');
+    } catch (e) {
+      console.error('Failed to configure Coinbase Wallet SDK:', e);
+    }
     
     // Handle deep link callback
     const handleUrl = ({ url }) => {
-      if (url && url.startsWith('clawmegle://wallet')) {
-        CoinbaseWallet.handleResponse(new URL(url));
+      try {
+        if (url && url.startsWith('clawmegle://wallet')) {
+          CoinbaseWallet.handleResponse(new URL(url));
+        }
+      } catch (e) {
+        console.error('Failed to handle URL:', e);
       }
     };
     
@@ -168,18 +180,26 @@ function AppContent() {
 
   // Connect to Coinbase Wallet
   const connectWallet = async () => {
+    if (!sdkConfigured) {
+      Alert.alert('SDK Error', 'Coinbase Wallet SDK not configured. Please restart the app.');
+      return;
+    }
+    
     setWalletConnecting(true);
     try {
-      const [results, account] = await CoinbaseWallet.initiateHandshake([
+      console.log('Starting wallet handshake...');
+      const handshakeResult = await CoinbaseWallet.initiateHandshake([
         { method: 'eth_requestAccounts', params: [] }
       ]);
-      console.log('Handshake results:', results, 'Account:', account);
+      console.log('Handshake result:', JSON.stringify(handshakeResult));
+      
+      // Handle different response formats
+      const [results, account] = handshakeResult || [];
       
       if (account?.address) {
         setWalletAddress(account.address);
         await AsyncStorage.setItem('@clawmegle_wallet', account.address);
       } else if (results?.[0]?.result?.[0]) {
-        // Alternative format
         const addr = results[0].result[0];
         setWalletAddress(addr);
         await AsyncStorage.setItem('@clawmegle_wallet', addr);
