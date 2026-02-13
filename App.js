@@ -1,7 +1,13 @@
+// ============ POLYFILLS (must be first) ============
 import 'react-native-get-random-values';
-import React, { useState, useEffect, useRef } from 'react';
+import 'react-native-url-polyfill/auto';
+import { polyfillWebCrypto } from 'expo-standard-web-crypto';
+import { randomUUID } from 'expo-crypto';
 import { Buffer } from 'buffer';
-import * as CoinbaseWallet from '@coinbase/wallet-mobile-sdk';
+
+// Apply crypto polyfills
+polyfillWebCrypto();
+crypto.randomUUID = randomUUID;
 
 // Polyfill btoa/atob for React Native
 if (typeof btoa === 'undefined') {
@@ -10,6 +16,10 @@ if (typeof btoa === 'undefined') {
 if (typeof atob === 'undefined') {
   global.atob = (str) => Buffer.from(str, 'base64').toString('binary');
 }
+
+// ============ IMPORTS ============
+import React, { useState, useEffect, useRef } from 'react';
+import { EIP1193Provider, Wallets } from '@mobile-wallet-protocol/client';
 import {
   StyleSheet,
   Text,
@@ -38,21 +48,23 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-// Configure Coinbase Wallet SDK
-const configureCoinbaseWallet = () => {
-  try {
-    // Use string URLs - React Native URL constructor can crash
-    CoinbaseWallet.configure({
-      callbackURL: 'clawmegle://wsegue',
-      hostURL: 'https://wallet.coinbase.com/wsegue',
-      hostPackageName: 'org.toshi',
+
+// ============ WALLET PROVIDER ============
+// Initialize once, reuse across component
+let walletProvider = null;
+const getWalletProvider = () => {
+  if (!walletProvider) {
+    walletProvider = new EIP1193Provider({
+      metadata: {
+        name: 'Clawmegle',
+        customScheme: 'clawmegle://',
+        chainIds: [8453], // Base
+        logoUrl: 'https://www.clawmegle.xyz/logo.png',
+      },
+      wallet: Wallets.CoinbaseSmartWallet,
     });
-    console.log('Coinbase Wallet SDK configured successfully');
-    return true;
-  } catch (e) {
-    console.error('Failed to configure Coinbase Wallet:', e);
-    return false;
   }
+  return walletProvider;
 };
 
 // Configure notification behavior
@@ -157,71 +169,32 @@ function AppContent() {
   const sendSoundRef = useRef(null);
   const prevMessageCount = useRef(0);
 
-  // Wallet state using Coinbase Wallet SDK
+  // Wallet state using Mobile Wallet Protocol
   const [walletAddress, setWalletAddress] = useState(null);
   const [walletConnecting, setWalletConnecting] = useState(false);
-  const [sdkConfigured, setSdkConfigured] = useState(false);
   const isConnected = !!walletAddress;
 
-  // Configure SDK on mount
+  // Load saved wallet address on mount
   useEffect(() => {
-    const configured = configureCoinbaseWallet();
-    setSdkConfigured(configured);
-    
-    // Load saved wallet address
     AsyncStorage.getItem('@clawmegle_wallet').then((addr) => {
       if (addr) setWalletAddress(addr);
     });
-
-    // Handle deep link callbacks
-    const handleUrl = ({ url }) => {
-      try {
-        if (url && url.includes('wsegue')) {
-          // Pass URL string directly - SDK should handle parsing
-          CoinbaseWallet.handleResponse(url);
-        }
-      } catch (e) {
-        console.error('Failed to handle URL:', e);
-      }
-    };
-    
-    const subscription = Linking.addEventListener('url', handleUrl);
-    return () => subscription?.remove();
   }, []);
 
-  // Connect wallet
+  // Connect wallet using EIP-1193 Provider
   const connectWallet = async () => {
-    if (!sdkConfigured) {
-      Alert.alert('SDK Error', 'Coinbase Wallet SDK not configured. Please restart the app.');
-      return;
-    }
-    
-    // Check if Coinbase Wallet is installed
-    const canOpen = await Linking.canOpenURL('cbwallet://');
-    if (!canOpen) {
-      Alert.alert(
-        'Coinbase Wallet Required',
-        'Please install Coinbase Wallet from the App Store to connect.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Get Wallet', onPress: () => Linking.openURL('https://apps.apple.com/app/coinbase-wallet/id1278383455') }
-        ]
-      );
-      return;
-    }
-    
     setWalletConnecting(true);
     try {
-      console.log('Initiating wallet handshake...');
-      const [results, account] = await CoinbaseWallet.initiateHandshake([
-        { method: 'eth_requestAccounts', params: [] }
-      ]);
+      const provider = getWalletProvider();
+      console.log('Requesting wallet connection...');
       
-      console.log('Handshake results:', results, account);
-      const addr = account?.address || results?.[0]?.result?.[0];
-      if (addr) {
-        setWalletAddress(addr);
-        await AsyncStorage.setItem('@clawmegle_wallet', addr);
+      const addresses = await provider.request({ method: 'eth_requestAccounts' });
+      console.log('Connected addresses:', addresses);
+      
+      if (addresses && addresses[0]) {
+        setWalletAddress(addresses[0]);
+        await AsyncStorage.setItem('@clawmegle_wallet', addresses[0]);
+        hapticSuccess();
       } else {
         throw new Error('No address returned from wallet');
       }
@@ -229,15 +202,15 @@ function AppContent() {
       console.log('Wallet connection error:', error);
       Alert.alert(
         'Connection Failed', 
-        error.message || 'Could not connect to Coinbase Wallet.'
+        error.message || 'Could not connect to wallet. Make sure Coinbase Wallet is installed.'
       );
+      hapticError();
     }
     setWalletConnecting(false);
   };
 
   // Disconnect wallet
   const disconnectWallet = () => {
-    CoinbaseWallet.resetSession();
     setWalletAddress(null);
     AsyncStorage.removeItem('@clawmegle_wallet');
   };
@@ -466,15 +439,13 @@ function AppContent() {
         },
       };
 
-      // Sign with Coinbase Wallet (EIP-712)
-      const results = await CoinbaseWallet.makeRequest([
-        {
-          method: 'eth_signTypedData_v4',
-          params: [walletAddress, JSON.stringify(typedData)],
-        }
-      ]);
+      // Sign with wallet (EIP-712) using EIP-1193 provider
+      const provider = getWalletProvider();
+      const signature = await provider.request({
+        method: 'eth_signTypedData_v4',
+        params: [walletAddress, JSON.stringify(typedData)],
+      });
 
-      const signature = results?.[0]?.result;
       if (!signature) {
         throw new Error('Signature not received');
       }
