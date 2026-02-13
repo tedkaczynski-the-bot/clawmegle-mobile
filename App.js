@@ -51,10 +51,14 @@ import * as ExpoLinking from 'expo-linking';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 // ============ WALLET PROVIDER (module level, like official example) ============
-// Use Linking.createURL() like the official Coinbase example
-// This dynamically generates the correct URL for dev/production environments
-const CALLBACK_URL = ExpoLinking.createURL('/');
+// SDK appends '/mobile-wallet-protocol' to this URL internally
+// For dev builds with custom scheme, use the scheme directly
+// Final redirect will be: clawmegle://mobile-wallet-protocol
+const CALLBACK_URL = 'clawmegle://';
 console.log('Wallet callback URL:', CALLBACK_URL);
+
+// Debug: Also log what Linking.createURL returns for comparison
+console.log('Linking.createURL("/"):', ExpoLinking.createURL('/'));
 
 // Initialize provider at module level (outside component)
 const walletProvider = new EIP1193Provider({
@@ -218,9 +222,13 @@ function AppContent() {
       }
     } catch (error) {
       console.log('Wallet connection error:', error);
+      console.log('Error name:', error?.name);
+      console.log('Error code:', error?.code);
+      console.log('Error stack:', error?.stack);
+      console.log('Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
       Alert.alert(
         'Connection Failed', 
-        error.message || 'Could not connect to wallet. Make sure Coinbase Wallet is installed.'
+        `${error.message || 'Unknown error'}\n\nCode: ${error?.code || 'none'}\nName: ${error?.name || 'none'}`
       );
       hapticError();
     }
