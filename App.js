@@ -63,25 +63,29 @@ WebBrowser.openAuthSessionAsync = async (...args) => {
 };
 
 // ============ WALLET PROVIDER (module level, like official example) ============
-// SDK appends '/mobile-wallet-protocol' to this URL internally
-// For dev builds with custom scheme, use the scheme directly
-// Final redirect will be: clawmegle://mobile-wallet-protocol
-// Per Grok/docs: use exactly scheme:// (two slashes), not three
-const CALLBACK_URL = 'clawmegle://';
+// In Expo Go, we MUST use the Expo scheme (exp://...) - custom schemes aren't whitelisted
+// In standalone/dev builds, use our custom scheme
+// Smart Wallet only allows exp:// "exceptionally for demos" - custom schemes need universal links in prod
+import Constants from 'expo-constants';
+
+const isExpoGo = Constants.appOwnership === 'expo';
+const CALLBACK_URL = isExpoGo 
+  ? ExpoLinking.createURL('/')  // exp://10.0.0.x:8081/--/ in Expo Go
+  : 'clawmegle://';              // Custom scheme for dev/standalone builds
+
+console.log('Running in Expo Go:', isExpoGo);
 console.log('Wallet callback URL:', CALLBACK_URL);
-console.log('Linking.createURL returns:', ExpoLinking.createURL('/'));
 
 // DEBUG BUILD MARKER - remove after debugging
-const BUILD_ID = 'debug-v3-' + Date.now();
+const BUILD_ID = 'debug-v4-' + Date.now();
 console.log('BUILD_ID:', BUILD_ID);
 
 // Define metadata separately so we can log it
-// Testing with placeholder logo to rule out logo URL issues
 const walletMetadata = {
   name: 'Clawmegle',
   customScheme: CALLBACK_URL,
   chainIds: [8453], // Base mainnet
-  logoUrl: 'https://via.placeholder.com/512.png?text=Clawmegle',
+  logoUrl: 'https://www.clawmegle.xyz/logo.png',
 };
 console.log('Wallet metadata being used:', JSON.stringify(walletMetadata, null, 2));
 
