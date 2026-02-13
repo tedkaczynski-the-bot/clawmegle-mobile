@@ -19,7 +19,10 @@ if (typeof atob === 'undefined') {
 
 // ============ IMPORTS ============
 import React, { useState, useEffect, useRef } from 'react';
-import { EIP1193Provider, Wallets } from '@mobile-wallet-protocol/client';
+import { createThirdwebClient } from "thirdweb";
+import { createWallet, injectedProvider } from "thirdweb/wallets";
+import { ThirdwebProvider, useConnect, useActiveAccount, useDisconnect } from "thirdweb/react";
+import { base } from "thirdweb/chains";
 import {
   StyleSheet,
   Text,
@@ -50,24 +53,31 @@ import * as WebBrowser from 'expo-web-browser';
 import * as ExpoLinking from 'expo-linking';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-// ============ SMART WALLET CONFIG ============
-// Smart Wallet requires custom scheme callback URL
-// The SDK appends /mobile-wallet-protocol to the path
-const CALLBACK_URL = 'clawmegle://callback';
+// ============ THIRDWEB CONFIG ============
+// Get your client ID at https://thirdweb.com/dashboard
+const THIRDWEB_CLIENT_ID = ""; // TODO: Add your client ID
 
-console.log('Smart Wallet callback URL:', CALLBACK_URL);
-console.log('BUILD: smartwallet-debug-' + Date.now());
-
-// Initialize Smart Wallet provider at module level
-const walletProvider = new EIP1193Provider({
-  metadata: {
-    name: 'Clawmegle',
-    customScheme: CALLBACK_URL,
-    chainIds: [8453], // Base mainnet
-    logoUrl: 'https://www.clawmegle.xyz/logo.png',
-  },
-  wallet: Wallets.CoinbaseSmartWallet,
+const client = createThirdwebClient({
+  clientId: THIRDWEB_CLIENT_ID,
 });
+
+// Create Coinbase Wallet instance
+const coinbaseWallet = createWallet("com.coinbase.wallet", {
+  appMetadata: {
+    name: "Clawmegle",
+    url: "https://www.clawmegle.xyz",
+    logoUrl: "https://www.clawmegle.xyz/logo.png",
+  },
+  mobileConfig: {
+    callbackURL: "clawmegle://",
+  },
+  walletConfig: {
+    options: "smartWalletOnly", // Use Smart Wallet / Base Account
+  },
+});
+
+console.log('Thirdweb client initialized');
+console.log('BUILD: thirdweb-' + Date.now());
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
@@ -149,10 +159,15 @@ const getAvatarUrl = (seed, twitterHandle = null) => {
   return `https://api.dicebear.com/7.x/${style}/png?seed=${encodeURIComponent(seed)}&size=120`;
 };
 
-// Inner app component that uses AppKit hooks
+// Inner app component that uses thirdweb hooks
 function AppContent() {
   // Force light mode
   const theme = getTheme(false);
+  
+  // Thirdweb hooks
+  const { connect, isConnecting } = useConnect();
+  const activeAccount = useActiveAccount();
+  const { disconnect } = useDisconnect();
   
   const [screen, setScreen] = useState(SCREENS.LOADING);
   const [activeTab, setActiveTab] = useState('chat'); // 'chat' | 'collective'
@@ -171,53 +186,41 @@ function AppContent() {
   const sendSoundRef = useRef(null);
   const prevMessageCount = useRef(0);
 
-  // Wallet state
+  // Wallet state - synced with thirdweb
   const [walletAddress, setWalletAddress] = useState(null);
   const [walletConnecting, setWalletConnecting] = useState(false);
+  const [connectedWallet, setConnectedWallet] = useState(null);
   const isConnected = !!walletAddress;
 
-  // Set up wallet event listeners and load saved address
+  // Sync thirdweb account to local state
+  useEffect(() => {
+    if (activeAccount?.address) {
+      setWalletAddress(activeAccount.address);
+      AsyncStorage.setItem('@clawmegle_wallet', activeAccount.address);
+    }
+  }, [activeAccount]);
+
+  // Load saved address on mount
   useEffect(() => {
     AsyncStorage.getItem('@clawmegle_wallet').then((addr) => {
       if (addr) setWalletAddress(addr);
     });
-
-    walletProvider.addListener('accountsChanged', (accounts) => {
-      if (accounts && Array.isArray(accounts) && accounts[0]) {
-        setWalletAddress(accounts[0]);
-        AsyncStorage.setItem('@clawmegle_wallet', accounts[0]);
-      }
-    });
-    
-    walletProvider.addListener('disconnect', () => {
-      setWalletAddress(null);
-      AsyncStorage.removeItem('@clawmegle_wallet');
-    });
-
-    return () => {
-      walletProvider.removeListener('accountsChanged');
-      walletProvider.removeListener('disconnect');
-    };
   }, []);
 
-  // Connect wallet using Coinbase Smart Wallet
+  // Connect wallet using thirdweb + Coinbase Wallet
   const connectWallet = async () => {
     setWalletConnecting(true);
     try {
-      console.log('Connecting to Coinbase Smart Wallet...');
-      console.log('Callback URL configured:', CALLBACK_URL);
-      const addresses = await walletProvider.request({ method: 'eth_requestAccounts' });
-      console.log('Got addresses:', addresses);
-      if (addresses && addresses[0]) {
-        setWalletAddress(addresses[0]);
-        await AsyncStorage.setItem('@clawmegle_wallet', addresses[0]);
-        hapticSuccess();
-      }
+      console.log('Connecting to Coinbase Wallet via thirdweb...');
+      const wallet = await connect(async () => {
+        await coinbaseWallet.connect({ client });
+        return coinbaseWallet;
+      });
+      console.log('Connected wallet:', wallet);
+      setConnectedWallet(wallet);
+      hapticSuccess();
     } catch (error) {
-      console.log('Wallet connection error:', JSON.stringify(error, null, 2));
-      console.log('Error message:', error?.message);
-      console.log('Error code:', error?.code);
-      console.log('Error data:', JSON.stringify(error?.data, null, 2));
+      console.log('Wallet connection error:', error);
       Alert.alert('Connection Failed', error.message || 'Unknown error');
       hapticError();
     }
@@ -227,11 +230,14 @@ function AppContent() {
   // Disconnect wallet
   const disconnectWallet = async () => {
     try {
-      await walletProvider.disconnect();
+      if (connectedWallet) {
+        await disconnect(connectedWallet);
+      }
     } catch (e) {
       console.log('Disconnect error:', e);
     }
     setWalletAddress(null);
+    setConnectedWallet(null);
     AsyncStorage.removeItem('@clawmegle_wallet');
   };
 
@@ -459,10 +465,19 @@ function AppContent() {
         },
       };
 
-      // Sign with wallet (EIP-712) using Smart Wallet provider
-      const signature = await walletProvider.request({
-        method: 'eth_signTypedData_v4',
-        params: [walletAddress, JSON.stringify(typedData)],
+      // Sign with wallet (EIP-712) using thirdweb
+      if (!connectedWallet) {
+        throw new Error('Wallet not connected');
+      }
+      const account = connectedWallet.getAccount();
+      if (!account) {
+        throw new Error('No account found');
+      }
+      const signature = await account.signTypedData({
+        domain: typedData.domain,
+        types: typedData.types,
+        primaryType: typedData.primaryType,
+        message: typedData.message,
       });
 
       if (!signature) {
@@ -1731,8 +1746,10 @@ const styles = StyleSheet.create({
 // Main App wrapper with providers
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <AppContent />
-    </SafeAreaProvider>
+    <ThirdwebProvider>
+      <SafeAreaProvider>
+        <AppContent />
+      </SafeAreaProvider>
+    </ThirdwebProvider>
   );
 }
