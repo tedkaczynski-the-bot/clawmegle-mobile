@@ -18,7 +18,7 @@ if (typeof atob === 'undefined') {
 }
 
 // ============ IMPORTS ============
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { EIP1193Provider, Wallets } from '@mobile-wallet-protocol/client';
 import {
   StyleSheet,
@@ -50,9 +50,19 @@ import * as WebBrowser from 'expo-web-browser';
 import * as ExpoLinking from 'expo-linking';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-// ============ WALLET PROVIDER ============
-// Will be initialized with proper callback URL from Linking
-let walletProvider = null;
+// ============ WALLET PROVIDER (module level, like official example) ============
+// Create callback URL using expo-linking (same as official example)
+const CALLBACK_URL = ExpoLinking.createURL('/');
+console.log('Wallet callback URL:', CALLBACK_URL);
+
+// Initialize provider at module level (outside component)
+const walletProvider = new EIP1193Provider({
+  metadata: {
+    name: 'Clawmegle',
+    customScheme: CALLBACK_URL,
+  },
+  wallet: Wallets.CoinbaseSmartWallet,
+});
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
@@ -161,54 +171,39 @@ function AppContent() {
   const [walletConnecting, setWalletConnecting] = useState(false);
   const isConnected = !!walletAddress;
 
-  // Get or create wallet provider with proper callback URL
-  const getWalletProvider = useCallback(() => {
-    if (!walletProvider) {
-      // Use ExpoLinking.createURL to get proper scheme-based callback
-      const callbackUrl = ExpoLinking.createURL('/');
-      console.log('Initializing wallet provider with callback:', callbackUrl);
-      
-      walletProvider = new EIP1193Provider({
-        metadata: {
-          name: 'Clawmegle',
-          customScheme: callbackUrl,
-          chainIds: [8453], // Base
-          logoUrl: 'https://www.clawmegle.xyz/logo.png',
-        },
-        wallet: Wallets.CoinbaseSmartWallet,
-      });
-      
-      // Listen for account changes
-      walletProvider.addListener('accountsChanged', (accounts) => {
-        if (accounts && Array.isArray(accounts) && accounts[0]) {
-          setWalletAddress(accounts[0]);
-          AsyncStorage.setItem('@clawmegle_wallet', accounts[0]);
-        }
-      });
-      
-      walletProvider.addListener('disconnect', () => {
-        setWalletAddress(null);
-        AsyncStorage.removeItem('@clawmegle_wallet');
-      });
-    }
-    return walletProvider;
-  }, []);
-
-  // Load saved wallet address on mount
+  // Set up wallet event listeners and load saved address on mount
   useEffect(() => {
+    // Load saved wallet address
     AsyncStorage.getItem('@clawmegle_wallet').then((addr) => {
       if (addr) setWalletAddress(addr);
     });
+
+    // Listen for account changes (using module-level provider)
+    walletProvider.addListener('accountsChanged', (accounts) => {
+      if (accounts && Array.isArray(accounts) && accounts[0]) {
+        setWalletAddress(accounts[0]);
+        AsyncStorage.setItem('@clawmegle_wallet', accounts[0]);
+      }
+    });
+    
+    walletProvider.addListener('disconnect', () => {
+      setWalletAddress(null);
+      AsyncStorage.removeItem('@clawmegle_wallet');
+    });
+
+    return () => {
+      walletProvider.removeListener('accountsChanged');
+      walletProvider.removeListener('disconnect');
+    };
   }, []);
 
-  // Connect wallet using EIP-1193 Provider
+  // Connect wallet using EIP-1193 Provider (module-level)
   const connectWallet = async () => {
     setWalletConnecting(true);
     try {
-      const provider = getWalletProvider();
       console.log('Requesting wallet connection...');
       
-      const addresses = await provider.request({ method: 'eth_requestAccounts' });
+      const addresses = await walletProvider.request({ method: 'eth_requestAccounts' });
       console.log('Connected addresses:', addresses);
       
       if (addresses && addresses[0]) {
@@ -232,8 +227,7 @@ function AppContent() {
   // Disconnect wallet
   const disconnectWallet = async () => {
     try {
-      const provider = getWalletProvider();
-      await provider.disconnect();
+      await walletProvider.disconnect();
     } catch (e) {
       console.log('Disconnect error:', e);
     }
@@ -465,9 +459,8 @@ function AppContent() {
         },
       };
 
-      // Sign with wallet (EIP-712) using EIP-1193 provider
-      const provider = getWalletProvider();
-      const signature = await provider.request({
+      // Sign with wallet (EIP-712) using module-level provider
+      const signature = await walletProvider.request({
         method: 'eth_signTypedData_v4',
         params: [walletAddress, JSON.stringify(typedData)],
       });
