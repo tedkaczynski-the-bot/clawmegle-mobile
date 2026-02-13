@@ -75,14 +75,18 @@ console.log('Linking.createURL returns:', ExpoLinking.createURL('/'));
 const BUILD_ID = 'debug-v3-' + Date.now();
 console.log('BUILD_ID:', BUILD_ID);
 
+// Define metadata separately so we can log it
+const walletMetadata = {
+  name: 'Clawmegle',
+  customScheme: CALLBACK_URL,
+  chainIds: [8453], // Base mainnet
+  logoUrl: 'https://www.clawmegle.xyz/logo.png',
+};
+console.log('Wallet metadata being used:', JSON.stringify(walletMetadata, null, 2));
+
 // Initialize provider at module level (outside component)
 const walletProvider = new EIP1193Provider({
-  metadata: {
-    name: 'Clawmegle',
-    customScheme: CALLBACK_URL,
-    chainIds: [8453], // Base
-    logoUrl: 'https://www.clawmegle.xyz/logo.png',
-  },
+  metadata: walletMetadata,
   wallet: Wallets.CoinbaseSmartWallet,
 });
 
@@ -224,7 +228,7 @@ function AppContent() {
     setWalletConnecting(true);
     try {
       console.log('Requesting wallet connection...');
-      console.log('Provider metadata:', JSON.stringify(walletProvider.metadata || 'no metadata'));
+      console.log('Using metadata:', JSON.stringify(walletMetadata));
       
       // Debug: wrap the request to catch any errors
       let addresses;
