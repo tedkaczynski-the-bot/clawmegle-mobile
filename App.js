@@ -180,11 +180,6 @@ function AppContent() {
 
   // Connect to Coinbase Wallet
   const connectWallet = async () => {
-    if (!sdkConfigured) {
-      Alert.alert('SDK Error', 'Coinbase Wallet SDK not configured. Please restart the app.');
-      return;
-    }
-    
     setWalletConnecting(true);
     try {
       // Check if Coinbase Wallet is installed
@@ -205,7 +200,11 @@ function AppContent() {
         return;
       }
       
-      console.log('Starting wallet handshake...');
+      console.log('Starting wallet handshake (delayed)...');
+      
+      // Small delay to let React Native bridge settle
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       const handshakeResult = await CoinbaseWallet.initiateHandshake([
         { method: 'eth_requestAccounts', params: [] }
       ]);
