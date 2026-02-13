@@ -19,6 +19,27 @@ if (typeof atob === 'undefined') {
 
 // ============ IMPORTS ============
 import React, { useState, useEffect, useRef } from 'react';
+import * as WebBrowser from 'expo-web-browser';
+
+// MONKEY PATCH: Intercept WebBrowser to log what wallet returns
+const originalOpenAuthSession = WebBrowser.openAuthSessionAsync;
+WebBrowser.openAuthSessionAsync = async (...args) => {
+  console.log('=== WebBrowser.openAuthSessionAsync CALLED ===');
+  console.log('Args:', JSON.stringify(args, null, 2));
+  try {
+    const result = await originalOpenAuthSession(...args);
+    console.log('=== WebBrowser RESULT ===');
+    console.log('Result type:', result?.type);
+    console.log('Result url:', result?.url);
+    console.log('Full result:', JSON.stringify(result, null, 2));
+    return result;
+  } catch (e) {
+    console.log('=== WebBrowser ERROR ===');
+    console.log('Error:', e);
+    throw e;
+  }
+};
+
 import { EIP1193Provider, Wallets } from '@mobile-wallet-protocol/client';
 import {
   StyleSheet,
