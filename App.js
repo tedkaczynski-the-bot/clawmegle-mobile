@@ -28,7 +28,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { AppKitProvider, AppKitButton, useAppKitAccount } from '@reown/appkit-react-native';
+import { AppKitProvider, AppKitButton, useAccount } from '@reown/appkit-react-native';
 import { appKit } from './AppKitConfig';
 
 // Configure notification behavior
@@ -123,7 +123,7 @@ function AppContent() {
   const prevMessageCount = useRef(0);
 
   // Wallet state from AppKit
-  const { address: walletAddress, isConnected } = useAppKitAccount();
+  const { address: walletAddress, isConnected } = useAccount();
 
   // Collective state
   const [collectiveQuery, setCollectiveQuery] = useState('');
