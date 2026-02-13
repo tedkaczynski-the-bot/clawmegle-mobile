@@ -76,11 +76,12 @@ const BUILD_ID = 'debug-v3-' + Date.now();
 console.log('BUILD_ID:', BUILD_ID);
 
 // Define metadata separately so we can log it
+// Testing with placeholder logo to rule out logo URL issues
 const walletMetadata = {
   name: 'Clawmegle',
   customScheme: CALLBACK_URL,
   chainIds: [8453], // Base mainnet
-  logoUrl: 'https://www.clawmegle.xyz/logo.png',
+  logoUrl: 'https://via.placeholder.com/512.png?text=Clawmegle',
 };
 console.log('Wallet metadata being used:', JSON.stringify(walletMetadata, null, 2));
 
