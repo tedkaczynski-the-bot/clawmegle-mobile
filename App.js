@@ -1324,11 +1324,13 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins_700Bold',
     color: '#333',
     marginBottom: 4,
+    textAlign: 'center',
   },
   collectiveSubtitle: {
     fontSize: 13,
     color: '#666',
     marginBottom: 16,
+    textAlign: 'center',
   },
   collectiveInput: {
     backgroundColor: '#f5f5f5',
