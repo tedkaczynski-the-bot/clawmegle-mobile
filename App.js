@@ -58,11 +58,11 @@ const metadata = {
 const base = {
   id: 8453,
   name: 'Base',
-  network: 'base',
+  chainNamespace: 'eip155',
+  caipNetworkId: 'eip155:8453',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
     default: { http: ['https://mainnet.base.org'] },
-    public: { http: ['https://mainnet.base.org'] },
   },
   blockExplorers: {
     default: { name: 'BaseScan', url: 'https://basescan.org' },
@@ -79,6 +79,7 @@ const appKit = createAppKit({
   networks: [base],
   defaultNetwork: base,
   adapters: [ethersAdapter],
+  themeMode: 'light',
   enableAnalytics: false,
 });
 
