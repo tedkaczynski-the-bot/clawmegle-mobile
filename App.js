@@ -12,7 +12,7 @@ if (typeof atob === 'undefined') {
 }
 
 // Reown/WalletConnect
-import { createAppKit, useAppKit, useAppKitAccount, AppKit } from '@reown/appkit-react-native';
+import { createAppKit, useAppKit, useAccount, AppKit, AppKitProvider } from '@reown/appkit-react-native';
 import { EthersAdapter } from '@reown/appkit-ethers-react-native';
 import {
   StyleSheet,
@@ -73,7 +73,7 @@ const base = {
 const ethersAdapter = new EthersAdapter();
 
 // Initialize AppKit
-createAppKit({
+const appKit = createAppKit({
   projectId,
   metadata,
   networks: [base],
@@ -186,7 +186,7 @@ function AppContent() {
 
   // Wallet state using Reown AppKit
   const { open } = useAppKit();
-  const { address, isConnected } = useAppKitAccount();
+  const { address, isConnected } = useAccount();
   const walletAddress = address;
   const [walletConnecting, setWalletConnecting] = useState(false);
 
@@ -1712,8 +1712,10 @@ const styles = StyleSheet.create({
 export default function App() {
   return (
     <SafeAreaProvider>
-      <AppContent />
-      <AppKit />
+      <AppKitProvider instance={appKit}>
+        <AppContent />
+        <AppKit />
+      </AppKitProvider>
     </SafeAreaProvider>
   );
 }
