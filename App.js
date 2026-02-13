@@ -48,12 +48,17 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import * as WebBrowser from 'expo-web-browser';
 import * as ExpoLinking from 'expo-linking';
+import * as AuthSession from 'expo-auth-session';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 // ============ SMART WALLET CONFIG ============
-// Use ExpoLinking.createURL exactly like the working example
-// This generates the correct URL format for the current environment
-const CALLBACK_URL = ExpoLinking.createURL('/');
+// Use AuthSession.makeRedirectUri which handles all environment edge cases
+// Dev build: clawmegle://
+// Expo Go: exp://...
+const CALLBACK_URL = AuthSession.makeRedirectUri({
+  scheme: 'clawmegle',
+  path: 'callback',
+});
 
 console.log('Smart Wallet callback URL:', CALLBACK_URL);
 console.log('BUILD: smartwallet-debug-' + Date.now());
