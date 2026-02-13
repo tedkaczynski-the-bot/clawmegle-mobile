@@ -13,6 +13,7 @@ if (typeof atob === 'undefined') {
 
 // Reown/WalletConnect
 import { createAppKit, useAppKit, useAppKitAccount, AppKit } from '@reown/appkit-react-native';
+import { EthersAdapter } from '@reown/appkit-ethers-react-native';
 import {
   StyleSheet,
   Text,
@@ -68,12 +69,16 @@ const base = {
   },
 };
 
+// Initialize EthersAdapter for EVM chains
+const ethersAdapter = new EthersAdapter();
+
 // Initialize AppKit
 createAppKit({
   projectId,
   metadata,
   networks: [base],
   defaultNetwork: base,
+  adapters: [ethersAdapter],
   enableAnalytics: false,
 });
 
