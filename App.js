@@ -27,7 +27,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-// Wallet connection via deep links (no WalletConnect SDK needed)
+import * as CoinbaseWallet from '@coinbase/wallet-mobile-sdk';
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
@@ -120,9 +120,63 @@ function AppContent() {
   const sendSoundRef = useRef(null);
   const prevMessageCount = useRef(0);
 
-  // Wallet state (simple address storage)
+  // Wallet state
   const [walletAddress, setWalletAddress] = useState(null);
+  const [walletConnecting, setWalletConnecting] = useState(false);
   const isConnected = !!walletAddress;
+
+  // Configure Coinbase Wallet SDK
+  useEffect(() => {
+    CoinbaseWallet.configure({
+      callbackURL: new URL('clawmegle://wallet'),
+      hostURL: new URL('https://wallet.coinbase.com/wsegue'),
+      hostPackageName: 'org.toshi',
+    });
+    
+    // Handle deep link callback
+    const handleUrl = ({ url }) => {
+      if (url && url.startsWith('clawmegle://wallet')) {
+        CoinbaseWallet.handleResponse(new URL(url));
+      }
+    };
+    
+    Linking.addEventListener('url', handleUrl);
+    return () => {
+      // Cleanup handled automatically in newer RN
+    };
+  }, []);
+
+  // Connect to Coinbase Wallet
+  const connectWallet = async () => {
+    setWalletConnecting(true);
+    try {
+      const [results, account] = await CoinbaseWallet.initiateHandshake([
+        { method: 'eth_requestAccounts', params: [] }
+      ]);
+      if (account?.address) {
+        setWalletAddress(account.address);
+        await AsyncStorage.setItem('@clawmegle_wallet', account.address);
+      }
+    } catch (error) {
+      console.log('Wallet connection error:', error);
+      Alert.alert('Connection Failed', 'Could not connect to Coinbase Wallet. Make sure the app is installed.');
+    }
+    setWalletConnecting(false);
+  };
+
+  // Disconnect wallet
+  const disconnectWallet = () => {
+    CoinbaseWallet.resetSession();
+    setWalletAddress(null);
+    AsyncStorage.removeItem('@clawmegle_wallet');
+  };
+
+  // Load saved wallet on mount
+  useEffect(() => {
+    AsyncStorage.getItem('@clawmegle_wallet').then((addr) => {
+      if (addr) setWalletAddress(addr);
+    });
+  }, []);
 
   // Collective state
   const [collectiveQuery, setCollectiveQuery] = useState('');
@@ -584,18 +638,16 @@ function AppContent() {
             onPress={() => {
               if (walletAddress) {
                 Alert.alert('Wallet', `Connected: ${walletAddress.slice(0,6)}...${walletAddress.slice(-4)}`, [
-                  { text: 'Disconnect', onPress: () => setWalletAddress(null), style: 'destructive' },
+                  { text: 'Disconnect', onPress: disconnectWallet, style: 'destructive' },
                   { text: 'OK' }
                 ]);
               } else {
-                Alert.prompt('Connect Wallet', 'Paste your Base wallet address:', (addr) => {
-                  if (addr && addr.startsWith('0x') && addr.length === 42) setWalletAddress(addr);
-                  else if (addr) Alert.alert('Invalid', 'Please enter a valid Ethereum address');
-                });
+                connectWallet();
               }
             }}
+            disabled={walletConnecting}
           >
-            <Text style={styles.walletBtnText}>{walletAddress ? `${walletAddress.slice(0,6)}...` : 'Connect'}</Text>
+            <Text style={styles.walletBtnText}>{walletConnecting ? '...' : walletAddress ? `${walletAddress.slice(0,6)}...` : 'Connect'}</Text>
           </TouchableOpacity>
         </View>
 
@@ -661,15 +713,11 @@ function AppContent() {
                 ) : (
                   <TouchableOpacity 
                     style={styles.btnPrimary}
-                    onPress={() => {
-                      Alert.prompt('Connect Wallet', 'Paste your Base wallet address:', (addr) => {
-                        if (addr && addr.startsWith('0x') && addr.length === 42) setWalletAddress(addr);
-                        else if (addr) Alert.alert('Invalid', 'Please enter a valid Ethereum address');
-                      });
-                    }}
+                    onPress={connectWallet}
+                    disabled={walletConnecting}
                   >
                     <LinearGradient colors={['#9b59b6', '#8e44ad']} style={styles.btnPrimaryGradient} />
-                    <Text style={styles.btnPrimaryText}>Connect Wallet</Text>
+                    <Text style={styles.btnPrimaryText}>{walletConnecting ? 'Connecting...' : 'Connect Wallet'}</Text>
                   </TouchableOpacity>
                 )}
               </View>
