@@ -331,20 +331,34 @@ function AppContent() {
     // Payment details from x402 response
     const payTo = '0x81FD234f63Dd559d0EDA56d17BB1Bb78f236DB37';
     const usdcAddress = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
-    const amount = '0.05';
+    const amountWei = '50000'; // 0.05 USDC = 50000 (6 decimals)
 
-    // Coinbase Wallet deep link with callback
-    const callbackUrl = encodeURIComponent('clawmegle://payment-complete');
-    const cbWalletUrl = `https://go.cb-w.com/send?address=${payTo}&amount=${amount}&asset=${usdcAddress}&chain=8453&callback=${callbackUrl}`;
-    
     setPendingPayment(true);
 
     try {
-      await Linking.openURL(cbWalletUrl);
+      // Use Coinbase Wallet SDK to send USDC
+      const results = await CoinbaseWallet.makeRequest([
+        {
+          method: 'eth_sendTransaction',
+          params: [{
+            from: walletAddress,
+            to: usdcAddress,
+            data: `0xa9059cbb000000000000000000000000${payTo.slice(2).toLowerCase()}000000000000000000000000000000000000000000000000000000000000c350`, // transfer(to, 50000)
+            chainId: '0x2105', // Base = 8453
+          }]
+        }
+      ], { address: walletAddress, chain: 'eip155:8453' });
+
+      console.log('Payment result:', results);
+      
+      // If we get here, payment was approved - do the search
+      await searchCollectiveWithPayment();
     } catch (e) {
-      setPendingPayment(false);
-      Alert.alert('Error', 'Could not open wallet app. Make sure Coinbase Wallet is installed.');
+      console.log('Payment error:', e);
+      Alert.alert('Payment Failed', e.message || 'Transaction was rejected or failed');
     }
+    
+    setPendingPayment(false);
   };
 
   // Search with payment - called after wallet callback
