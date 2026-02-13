@@ -51,8 +51,9 @@ import * as ExpoLinking from 'expo-linking';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 // ============ WALLET PROVIDER (module level, like official example) ============
-// Use Linking.createURL per Grok's suggestion - produces properly formatted URL
-const CALLBACK_URL = ExpoLinking.createURL('callback');
+// Use host/path format: clawmegle://app/callback
+// SDK transforms to: clawmegle://app/callback/mobile-wallet-protocol
+const CALLBACK_URL = 'clawmegle://app/callback';
 console.log('Wallet callback URL:', CALLBACK_URL);
 
 // Initialize provider at module level (outside component)
