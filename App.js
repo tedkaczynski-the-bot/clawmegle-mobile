@@ -41,11 +41,13 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 // Configure Coinbase Wallet SDK
 const configureCoinbaseWallet = () => {
   try {
+    // Use string URLs - React Native URL constructor can crash
     CoinbaseWallet.configure({
-      callbackURL: new URL('clawmegle://wsegue'),
-      hostURL: new URL('https://wallet.coinbase.com/wsegue'),
+      callbackURL: 'clawmegle://wsegue',
+      hostURL: 'https://wallet.coinbase.com/wsegue',
       hostPackageName: 'org.toshi',
     });
+    console.log('Coinbase Wallet SDK configured successfully');
     return true;
   } catch (e) {
     console.error('Failed to configure Coinbase Wallet:', e);
@@ -175,7 +177,8 @@ function AppContent() {
     const handleUrl = ({ url }) => {
       try {
         if (url && url.includes('wsegue')) {
-          CoinbaseWallet.handleResponse(new URL(url));
+          // Pass URL string directly - SDK should handle parsing
+          CoinbaseWallet.handleResponse(url);
         }
       } catch (e) {
         console.error('Failed to handle URL:', e);
@@ -193,12 +196,28 @@ function AppContent() {
       return;
     }
     
+    // Check if Coinbase Wallet is installed
+    const canOpen = await Linking.canOpenURL('cbwallet://');
+    if (!canOpen) {
+      Alert.alert(
+        'Coinbase Wallet Required',
+        'Please install Coinbase Wallet from the App Store to connect.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Get Wallet', onPress: () => Linking.openURL('https://apps.apple.com/app/coinbase-wallet/id1278383455') }
+        ]
+      );
+      return;
+    }
+    
     setWalletConnecting(true);
     try {
+      console.log('Initiating wallet handshake...');
       const [results, account] = await CoinbaseWallet.initiateHandshake([
         { method: 'eth_requestAccounts', params: [] }
       ]);
       
+      console.log('Handshake results:', results, account);
       const addr = account?.address || results?.[0]?.result?.[0];
       if (addr) {
         setWalletAddress(addr);
@@ -210,7 +229,7 @@ function AppContent() {
       console.log('Wallet connection error:', error);
       Alert.alert(
         'Connection Failed', 
-        'Could not connect to Coinbase Wallet. Make sure Coinbase Wallet is installed.'
+        error.message || 'Could not connect to Coinbase Wallet.'
       );
     }
     setWalletConnecting(false);
