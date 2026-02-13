@@ -19,27 +19,6 @@ if (typeof atob === 'undefined') {
 
 // ============ IMPORTS ============
 import React, { useState, useEffect, useRef } from 'react';
-import * as WebBrowser from 'expo-web-browser';
-
-// MONKEY PATCH: Intercept WebBrowser to log what wallet returns
-const originalOpenAuthSession = WebBrowser.openAuthSessionAsync;
-WebBrowser.openAuthSessionAsync = async (...args) => {
-  console.log('=== WebBrowser.openAuthSessionAsync CALLED ===');
-  console.log('Args:', JSON.stringify(args, null, 2));
-  try {
-    const result = await originalOpenAuthSession(...args);
-    console.log('=== WebBrowser RESULT ===');
-    console.log('Result type:', result?.type);
-    console.log('Result url:', result?.url);
-    console.log('Full result:', JSON.stringify(result, null, 2));
-    return result;
-  } catch (e) {
-    console.log('=== WebBrowser ERROR ===');
-    console.log('Error:', e);
-    throw e;
-  }
-};
-
 import { EIP1193Provider, Wallets } from '@mobile-wallet-protocol/client';
 import {
   StyleSheet,
@@ -70,6 +49,18 @@ import * as Device from 'expo-device';
 import * as WebBrowser from 'expo-web-browser';
 import * as ExpoLinking from 'expo-linking';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+// ============ DEBUG: Intercept WebBrowser to see wallet response ============
+const _origOpenAuth = WebBrowser.openAuthSessionAsync;
+WebBrowser.openAuthSessionAsync = async (...args) => {
+  console.log('=== WEBBROWSER CALLED ===');
+  console.log('Redirect URL:', args[1]);
+  const result = await _origOpenAuth(...args);
+  console.log('=== WEBBROWSER RESULT ===');
+  console.log('Type:', result?.type);
+  console.log('URL:', result?.url?.substring(0, 200));
+  return result;
+};
 
 // ============ WALLET PROVIDER (module level, like official example) ============
 // SDK appends '/mobile-wallet-protocol' to this URL internally
