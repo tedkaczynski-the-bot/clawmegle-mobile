@@ -51,9 +51,9 @@ import * as ExpoLinking from 'expo-linking';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 // ============ WALLET PROVIDER (module level, like official example) ============
-// Per docs: only custom scheme (e.g. `myapp://`) supported in v1.0.0
-// Universal links require provisioning profile update - reverting to test
-const CALLBACK_URL = 'clawmegle://';
+// Use Linking.createURL() like the official Coinbase example
+// This dynamically generates the correct URL for dev/production environments
+const CALLBACK_URL = ExpoLinking.createURL('/');
 console.log('Wallet callback URL:', CALLBACK_URL);
 
 // Initialize provider at module level (outside component)
