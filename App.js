@@ -508,6 +508,11 @@ function AppContent() {
       console.log('Base64 signature length:', paymentSignature.length);
       console.log('Base64 first 100 chars:', paymentSignature.substring(0, 100));
 
+      // Warmup request (RN networking seems to need this)
+      try {
+        await fetch('https://www.clawmegle.xyz/api/collective/stats');
+      } catch (e) {}
+
       // Send request with payment signature using XMLHttpRequest (fetch has issues in RN)
       console.log('Making XHR request with payment in body');
       
