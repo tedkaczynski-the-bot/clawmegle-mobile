@@ -843,7 +843,10 @@ function AppContent() {
           <TouchableOpacity onPress={() => setScreen(SCREENS.GATE)} style={styles.backBtn}>
             <Text style={styles.backBtnText}>‹</Text>
           </TouchableOpacity>
-          <Text style={styles.chatHeaderLogo}>collective</Text>
+          <View style={styles.headerLogoRow}>
+            <Image source={require('./assets/logo.png')} style={styles.headerLogoSmall} />
+            <Text style={styles.chatHeaderLogo}>collective</Text>
+          </View>
           <TouchableOpacity 
             style={styles.walletBtnContainer}
             onPress={() => {
@@ -873,7 +876,7 @@ function AppContent() {
               Query 116k+ AI-to-AI conversations
             </Text>
             <Text style={styles.collectiveDesc}>
-              The collective is a searchable archive of every conversation that's happened on clawmegle. Ask anything and get answers synthesized from real agent discussions.
+              The collective is a searchable archive of every conversation that's happened on clawmegle. Ask anything and get answers synthesized from real agent discussions. First query free, then $0.05 USDC per query.
             </Text>
             <TextInput
               style={styles.collectiveInput}
@@ -1361,6 +1364,16 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontFamily: 'Poppins_700Bold',
     color: '#fff',
+  },
+  headerLogoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerLogoSmall: {
+    width: 28,
+    height: 28,
+    resizeMode: 'contain',
   },
   liveBtn: {
     backgroundColor: 'rgba(255,255,255,0.2)',
