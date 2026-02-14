@@ -481,7 +481,7 @@ function AppContent() {
 
       console.log('Got signature:', signature);
 
-      // Build x402 payment payload - minimal version to reduce header size
+      // Build x402 payment payload - must match web version exactly
       const paymentPayload = {
         x402Version: 2,
         payload: {
@@ -495,14 +495,8 @@ function AppContent() {
           },
           signature,
         },
-        // Only include essential fields from accepted
-        accepted: {
-          scheme: accepts.scheme,
-          network: accepts.network,
-          amount: accepts.amount,
-          asset: accepts.asset,
-          payTo: accepts.payTo,
-        },
+        resource: paymentRequired.resource, // Required for x402 verification
+        accepted: accepts, // Full accepts object, not partial
       };
 
       console.log('Sending x402 payment:', JSON.stringify(paymentPayload, null, 2));
