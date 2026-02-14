@@ -514,15 +514,20 @@ function AppContent() {
       console.log('Base64 signature length:', paymentSignature.length);
       console.log('Base64 first 100 chars:', paymentSignature.substring(0, 100));
 
-      // Send request with payment signature via query param (RN fetch has header issues)
-      const paymentUrl = `${COLLECTIVE_API}?_ps=${encodeURIComponent(paymentSignature)}`;
-      console.log('Making fetch request with payment in URL');
+      // Send request with payment signature in body (RN fetch has header issues)
+      console.log('Making fetch request with payment in body');
       
-      const requestBody = JSON.stringify({ query: collectiveQuery, limit: 10, synthesize: true });
+      const requestBody = JSON.stringify({ 
+        query: collectiveQuery, 
+        limit: 10, 
+        synthesize: true,
+        paymentSignature: paymentSignature, // Payment in body
+      });
+      console.log('Request body length:', requestBody.length);
       
       let res;
       try {
-        res = await fetch(paymentUrl, {
+        res = await fetch(COLLECTIVE_API, {
           method: 'POST',
           headers: {
             'Accept': 'application/json',
