@@ -531,7 +531,7 @@ function AppContent() {
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
-            'X-Payment-Signature': paymentSignature, // Try X- prefix
+            'PAYMENT-SIGNATURE': paymentSignature, // Standard x402 header
           },
           body: requestBody,
           signal: controller.signal,
