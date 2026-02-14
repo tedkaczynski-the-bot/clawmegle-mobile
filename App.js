@@ -514,30 +514,53 @@ function AppContent() {
       console.log('Base64 signature length:', paymentSignature.length);
       console.log('Base64 first 100 chars:', paymentSignature.substring(0, 100));
 
-      // Send request with payment signature in body (RN fetch has header issues)
-      console.log('Making fetch request with payment in body');
+      // Send request with payment signature using XMLHttpRequest (fetch has issues in RN)
+      console.log('Making XHR request with payment in body');
       
       const requestBody = JSON.stringify({ 
         query: collectiveQuery, 
         limit: 10, 
         synthesize: true,
-        paymentSignature: paymentSignature, // Payment in body
+        paymentSignature: paymentSignature,
       });
       console.log('Request body length:', requestBody.length);
       
       let res;
       try {
-        res = await fetch(COLLECTIVE_API, {
-          method: 'POST',
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-          },
-          body: requestBody,
+        res = await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', COLLECTIVE_API, true);
+          xhr.setRequestHeader('Content-Type', 'application/json');
+          xhr.setRequestHeader('Accept', 'application/json');
+          xhr.timeout = 30000;
+          
+          xhr.onload = () => {
+            console.log('XHR response status:', xhr.status);
+            resolve({
+              ok: xhr.status >= 200 && xhr.status < 300,
+              status: xhr.status,
+              json: async () => JSON.parse(xhr.responseText),
+              text: async () => xhr.responseText,
+              headers: { get: (name) => xhr.getResponseHeader(name) },
+            });
+          };
+          
+          xhr.onerror = () => {
+            console.log('XHR error:', xhr.status, xhr.statusText);
+            reject(new Error('XHR request failed'));
+          };
+          
+          xhr.ontimeout = () => {
+            console.log('XHR timeout');
+            reject(new Error('Request timeout'));
+          };
+          
+          console.log('Sending XHR...');
+          xhr.send(requestBody);
         });
-      } catch (fetchErr) {
-        console.log('Fetch error:', fetchErr.name, fetchErr.message);
-        throw fetchErr;
+      } catch (xhrErr) {
+        console.log('XHR error:', xhrErr.message);
+        throw xhrErr;
       }
 
       console.log('Payment response status:', res.status);
