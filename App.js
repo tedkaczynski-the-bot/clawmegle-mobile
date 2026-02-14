@@ -514,47 +514,25 @@ function AppContent() {
       console.log('Base64 signature length:', paymentSignature.length);
       console.log('Base64 first 100 chars:', paymentSignature.substring(0, 100));
 
-      // Send request with payment signature
-      console.log('Making fetch request to:', COLLECTIVE_API);
+      // Send request with payment signature via query param (RN fetch has header issues)
+      const paymentUrl = `${COLLECTIVE_API}?_ps=${encodeURIComponent(paymentSignature)}`;
+      console.log('Making fetch request with payment in URL');
       
-      // Build request manually to avoid any header issues
       const requestBody = JSON.stringify({ query: collectiveQuery, limit: 10, synthesize: true });
-      console.log('Request body length:', requestBody.length);
-      
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
       
       let res;
       try {
-        res = await fetch(COLLECTIVE_API, {
+        res = await fetch(paymentUrl, {
           method: 'POST',
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
-            'PAYMENT-SIGNATURE': paymentSignature, // Standard x402 header
           },
           body: requestBody,
-          signal: controller.signal,
         });
-        clearTimeout(timeoutId);
       } catch (fetchErr) {
-        clearTimeout(timeoutId);
-        console.log('Fetch error details:', fetchErr.name, fetchErr.message);
-        // Try alternative: send signature in body instead of header
-        console.log('Trying signature in body...');
-        res = await fetch(COLLECTIVE_API, {
-          method: 'POST',
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-            query: collectiveQuery, 
-            limit: 10, 
-            synthesize: true,
-            _paymentSignature: paymentSignature, // Fallback in body
-          }),
-        });
+        console.log('Fetch error:', fetchErr.name, fetchErr.message);
+        throw fetchErr;
       }
 
       console.log('Payment response status:', res.status);
