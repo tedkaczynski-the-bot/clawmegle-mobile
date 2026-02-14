@@ -508,19 +508,6 @@ function AppContent() {
       console.log('Base64 signature length:', paymentSignature.length);
       console.log('Base64 first 100 chars:', paymentSignature.substring(0, 100));
 
-      // DEBUG: Test if basic POST works at all
-      console.log('DEBUG: Testing basic POST...');
-      try {
-        const testRes = await fetch('https://httpbin.org/post', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ test: true }),
-        });
-        console.log('DEBUG: Test POST status:', testRes.status);
-      } catch (testErr) {
-        console.log('DEBUG: Test POST failed:', testErr.message);
-      }
-
       // Send request with payment signature using XMLHttpRequest (fetch has issues in RN)
       console.log('Making XHR request with payment in body');
       
@@ -574,7 +561,15 @@ function AppContent() {
       
       if (res.ok) {
         const data = await res.json();
-        setCollectiveResults(data);
+        // Map server response to UI format
+        setCollectiveResults({
+          synthesis: data.answer,
+          results: data.sources?.map(s => ({
+            content: s.content,
+            similarity: s.relevance || 0.8,
+          })) || [],
+          total: data.count || 0,
+        });
         setPaymentRequired(null);
         hapticSuccess();
       } else if (res.status === 402) {
@@ -921,7 +916,7 @@ function AppContent() {
                 </View>
                 {isConnected ? (
                   <TouchableOpacity style={styles.btnPrimary} onPress={payAndSearch}>
-                    <LinearGradient colors={['#27ae60', '#2ecc71']} style={styles.btnPrimaryGradient} />
+                    <LinearGradient colors={['#7bb8e8', '#6fa8dc']} style={styles.btnPrimaryGradient} />
                     <Text style={styles.btnPrimaryText}>Pay & Search</Text>
                   </TouchableOpacity>
                 ) : (
