@@ -14,15 +14,15 @@ crypto.randomUUID = randomUUID;
 
 // Polyfill btoa/atob for React Native
 if (typeof btoa === 'undefined') {
-  global.btoa = (str) => Buffer.from(str, 'binary').toString('base64');
+  global.btoa = (str) => Buffer.from(str, 'utf8').toString('base64');
 }
 if (typeof atob === 'undefined') {
-  global.atob = (str) => Buffer.from(str, 'base64').toString('binary');
+  global.atob = (str) => Buffer.from(str, 'base64').toString('utf8');
 }
 
 // ============ IMPORTS ============
 import React, { useState, useEffect, useRef } from 'react';
-import { PROJECT_ID, providerMetadata, sessionParams, WalletConnectModal, useWalletConnectModal } from './WalletConnect';
+import { PROJECT_ID, providerMetadata, sessionParams, modalConfig, WalletConnectModal, useWalletConnectModal } from './WalletConnect';
 import {
   StyleSheet,
   Text,
@@ -396,6 +396,9 @@ function AppContent() {
       const validBefore = now + 900; // 15 min
       const nonce = generateNonce();
       const value = accepts.amount || '50000'; // 0.05 USDC
+      const payTo = accepts.payTo || PAY_TO; // Use server's payTo address
+
+      console.log('Payment params:', { from: walletAddress, to: payTo, value, nonce });
 
       // EIP-712 typed data for USDC transferWithAuthorization
       const typedData = {
@@ -424,7 +427,7 @@ function AppContent() {
         },
         message: {
           from: walletAddress,
-          to: PAY_TO,
+          to: payTo,
           value: value.toString(),
           validAfter: validAfter.toString(),
           validBefore: validBefore.toString(),
@@ -436,6 +439,24 @@ function AppContent() {
       if (!provider) {
         throw new Error('Wallet not connected');
       }
+
+      // Ensure we're on Base network (8453)
+      try {
+        const chainId = await provider.request({ method: 'eth_chainId' });
+        console.log('Current chainId:', chainId);
+        if (chainId !== '0x2105' && chainId !== 8453) { // 0x2105 = 8453 in hex
+          console.log('Switching to Base...');
+          await provider.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: '0x2105' }],
+          });
+        }
+      } catch (switchErr) {
+        console.log('Chain switch error (may be ok):', switchErr);
+        // Continue anyway - some wallets don't support switch
+      }
+
+      console.log('Requesting signature...');
       const signature = await provider.request({
         method: 'eth_signTypedData_v4',
         params: [walletAddress, JSON.stringify(typedData)],
@@ -447,13 +468,13 @@ function AppContent() {
 
       console.log('Got signature:', signature);
 
-      // Build x402 payment payload (same as web)
+      // Build x402 payment payload - minimal version to reduce header size
       const paymentPayload = {
         x402Version: 2,
         payload: {
           authorization: {
             from: walletAddress,
-            to: PAY_TO,
+            to: payTo,
             value: value.toString(),
             validAfter: validAfter.toString(),
             validBefore: validBefore.toString(),
@@ -461,31 +482,84 @@ function AppContent() {
           },
           signature,
         },
-        resource: paymentRequired.resource,
-        accepted: accepts,
+        // Only include essential fields from accepted
+        accepted: {
+          scheme: accepts.scheme,
+          network: accepts.network,
+          amount: accepts.amount,
+          asset: accepts.asset,
+          payTo: accepts.payTo,
+        },
       };
 
-      const paymentSignature = btoa(JSON.stringify(paymentPayload));
+      console.log('Sending x402 payment:', JSON.stringify(paymentPayload, null, 2));
+
+      const payloadJson = JSON.stringify(paymentPayload);
+      console.log('Payload JSON length:', payloadJson.length);
+      
+      const paymentSignature = btoa(payloadJson);
+      console.log('Base64 signature length:', paymentSignature.length);
+      console.log('Base64 first 100 chars:', paymentSignature.substring(0, 100));
 
       // Send request with payment signature
-      const res = await fetch(COLLECTIVE_API, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'PAYMENT-SIGNATURE': paymentSignature,
-        },
-        body: JSON.stringify({ query: collectiveQuery, limit: 10, synthesize: true }),
-      });
+      console.log('Making fetch request to:', COLLECTIVE_API);
+      
+      // Build request manually to avoid any header issues
+      const requestBody = JSON.stringify({ query: collectiveQuery, limit: 10, synthesize: true });
+      console.log('Request body length:', requestBody.length);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      
+      let res;
+      try {
+        res = await fetch(COLLECTIVE_API, {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-Payment-Signature': paymentSignature, // Try X- prefix
+          },
+          body: requestBody,
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+      } catch (fetchErr) {
+        clearTimeout(timeoutId);
+        console.log('Fetch error details:', fetchErr.name, fetchErr.message);
+        // Try alternative: send signature in body instead of header
+        console.log('Trying signature in body...');
+        res = await fetch(COLLECTIVE_API, {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            query: collectiveQuery, 
+            limit: 10, 
+            synthesize: true,
+            _paymentSignature: paymentSignature, // Fallback in body
+          }),
+        });
+      }
 
+      console.log('Payment response status:', res.status);
+      
       if (res.ok) {
         const data = await res.json();
         setCollectiveResults(data);
         setPaymentRequired(null);
         hapticSuccess();
       } else if (res.status === 402) {
-        Alert.alert('Payment Issue', 'Signature verification failed. Please try again.');
+        const errBody = await res.text();
+        console.log('402 error body:', errBody);
+        const paymentResponse = res.headers.get('payment-response');
+        console.log('payment-response header:', paymentResponse);
+        Alert.alert('Payment Issue', 'Signature verification failed. Check console for details.');
       } else {
         const err = await res.text();
+        console.log('Error response:', res.status, err);
         setCollectiveError(err || 'Search failed');
       }
     } catch (e) {
@@ -1713,6 +1787,8 @@ export default function App() {
         projectId={PROJECT_ID}
         providerMetadata={providerMetadata}
         sessionParams={sessionParams}
+        explorerRecommendedWalletIds={modalConfig.explorerRecommendedWalletIds}
+        explorerExcludedWalletIds={modalConfig.explorerExcludedWalletIds}
       />
     </SafeAreaProvider>
   );
