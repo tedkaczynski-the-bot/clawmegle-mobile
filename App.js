@@ -514,6 +514,19 @@ function AppContent() {
       console.log('Base64 signature length:', paymentSignature.length);
       console.log('Base64 first 100 chars:', paymentSignature.substring(0, 100));
 
+      // DEBUG: Test if basic POST works at all
+      console.log('DEBUG: Testing basic POST...');
+      try {
+        const testRes = await fetch('https://httpbin.org/post', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ test: true }),
+        });
+        console.log('DEBUG: Test POST status:', testRes.status);
+      } catch (testErr) {
+        console.log('DEBUG: Test POST failed:', testErr.message);
+      }
+
       // Send request with payment signature using XMLHttpRequest (fetch has issues in RN)
       console.log('Making XHR request with payment in body');
       
