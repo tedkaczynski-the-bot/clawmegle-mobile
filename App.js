@@ -442,18 +442,31 @@ function AppContent() {
 
       // Ensure we're on Base network (8453)
       try {
-        const chainId = await provider.request({ method: 'eth_chainId' });
-        console.log('Current chainId:', chainId);
-        if (chainId !== '0x2105' && chainId !== 8453) { // 0x2105 = 8453 in hex
-          console.log('Switching to Base...');
+        let chainId = await provider.request({ method: 'eth_chainId' });
+        // Normalize chainId to number for comparison
+        const chainIdNum = typeof chainId === 'string' ? parseInt(chainId, 16) : chainId;
+        console.log('Current chainId:', chainId, '(', chainIdNum, ')');
+        
+        if (chainIdNum !== 8453) {
+          console.log('Not on Base, switching...');
           await provider.request({
             method: 'wallet_switchEthereumChain',
             params: [{ chainId: '0x2105' }],
           });
+          // Wait a moment for chain switch to complete
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          // Verify switch worked
+          chainId = await provider.request({ method: 'eth_chainId' });
+          const newChainIdNum = typeof chainId === 'string' ? parseInt(chainId, 16) : chainId;
+          console.log('After switch chainId:', chainId, '(', newChainIdNum, ')');
+          if (newChainIdNum !== 8453) {
+            throw new Error('Failed to switch to Base network. Please switch manually in MetaMask.');
+          }
         }
       } catch (switchErr) {
-        console.log('Chain switch error (may be ok):', switchErr);
-        // Continue anyway - some wallets don't support switch
+        console.log('Chain switch error:', switchErr);
+        Alert.alert('Network Error', 'Please switch to Base network in MetaMask and try again.');
+        throw switchErr;
       }
 
       console.log('Requesting signature...');
